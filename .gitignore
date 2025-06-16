@@ -1,23 +1,25 @@
-# node_modules
-**/node_modules
-
-# env
-**/.env
-**/.env.*
-
-# dist output
-**/dist
-
-# Logs
-**/logs
-**/*.log
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-
-# OS
+# ─── GLOBAL ----
 .DS_Store
-Thumbs.db
+.env
+.env.*
+*.log
 
+# ─── PYTHON ----
+.venv/
+__pycache__/
+*.py[cod]
+
+# ─── FASTAPI ---
+ai-service/.env
+ai-service/__pycache__/
+ai-service/*.py[cod]
+
+# ─── NODE / NESTJS ---
+node_modules/
+dist/
+backend/.env
+backend/node_modules
+backend/dist
+
+# ─── DOCKER ---
+**/.container-volume
