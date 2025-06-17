@@ -13,7 +13,7 @@ import { RedisService } from './redis/redis.service';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  providers: [AuthService, RedisService],
+  providers: [AuthService, RedisService, JwtModule],
   controllers: [AuthController],
   exports: [AuthService],
 })
