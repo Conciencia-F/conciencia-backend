@@ -11,7 +11,12 @@ import { EmailModule } from './email/email.module';
       throttlers: [
         {
           ttl: 60,
+          limit: 30,
+        },
+        {
+          ttl: 60,
           limit: 5,
+          name: 'auth',
         },
       ],
     }),
