@@ -14,47 +14,37 @@ datasource db {
 }
 
 model User {
-  id          String    @id @default(uuid())
-  email       String    @unique
-  password    String
-  firstName   String
-  lastName    String
-  role        Role      @default(STUDENT)
-  isVerified  Boolean   @default(false)
-  profile     Profile?
-  articles    Article[] // Para investigadores
-  reviews     Review[]  // Para revisores
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  role              Role     @default(STUDENT_REGULAR)
+  isVerified        Boolean  @default(false)
+  verificationToken String?  @unique
+  resetToken        String?  @unique
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  tokens            Token[]
 }
 
 enum Role {
   ADMIN
   RESEARCHER
-  STUDENT
+  STUDENT_REGULAR
+  STUDENT_PROF
   REVIEWER
   EDITOR
 }
 
-model Profile {
-  id           String  @id @default(uuid())
-  institution  String?
-  department   String?
-  bio          String? @db.Text
-  orcidId      String? // Para investigadores
-  researchArea String?
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId       String  @unique
-}
-
-model Article {
-  id        String   @id @default(uuid())
-  title     String
-  abstract  String   @db.Text
-  content   String   @db.Text
-  status    Status   @default(DRAFT)
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  // Más campos relacionados con artículos académicos
+model Token {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  expires     DateTime
+  blacklisted Boolean  @default(false)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  @@index([token, blacklisted])
 }
 
