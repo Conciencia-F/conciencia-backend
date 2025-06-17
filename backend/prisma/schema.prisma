@@ -14,10 +14,47 @@ datasource db {
 }
 
 model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  firstName   String
+  lastName    String
+  role        Role      @default(STUDENT)
+  isVerified  Boolean   @default(false)
+  profile     Profile?
+  articles    Article[] // Para investigadores
+  reviews     Review[]  // Para revisores
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum Role {
+  ADMIN
+  RESEARCHER
+  STUDENT
+  REVIEWER
+  EDITOR
+}
+
+model Profile {
+  id           String  @id @default(uuid())
+  institution  String?
+  department   String?
+  bio          String? @db.Text
+  orcidId      String? // Para investigadores
+  researchArea String?
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String  @unique
+}
+
+model Article {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  title     String
+  abstract  String   @db.Text
+  content   String   @db.Text
+  status    Status   @default(DRAFT)
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  // Más campos relacionados con artículos académicos
 }
 
