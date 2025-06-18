@@ -1,19 +1,20 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { PassportModule } from '@nestjs/passport';
-import { JwtModule } from '@nestjs/jwt';
-import { RedisService } from './redis/redis.service';
+import { RedisModule } from '../shared/redis/redis.module';
 
 @Module({
   imports: [
     PassportModule,
+    RedisModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET,
+      secret: process.env.JWT_SECRET as string,
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  providers: [AuthService, RedisService, JwtModule],
+  providers: [AuthService],
   controllers: [AuthController],
   exports: [AuthService],
 })

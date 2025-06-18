@@ -8,7 +8,5 @@ export class LoginResponseDTO {
   lastName: string;
   role: Role;
   isVerified: boolean;
-  accessToken: string;
-  refreshToken?: string;
-  sessionTokens?: TokenInfo[];
+  tokens: TokenInfo[];
 }

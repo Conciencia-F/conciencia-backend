@@ -3,13 +3,13 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { RegisterDTO } from './dtos/register.dto';
+import { RegisterDto } from './dtos/register.dto';
 import * as bcrypt from 'bcrypt';
-import { LoginDTO } from './dtos/login.dto';
+import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RedisService } from './redis/redis.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { RedisService } from 'src/shared/redis/redis.service';
 
 // Simulación de user
 const users = new Map<string, { email: string; password: string }>();
@@ -22,7 +22,7 @@ export class AuthService {
     private readonly redisService: RedisService,
   ) {}
 
-  async register(dto: RegisterDTO) {
+  async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
 
     const userExists = await this.prismaService.user.findUnique({
@@ -48,7 +48,7 @@ export class AuthService {
     return { message: 'Usuario registrado correctamente', userId: user.id };
   }
 
-  async login(dto: LoginDTO) {
+  async login(dto: LoginDto) {
     const { email, password } = dto;
 
     const user = await this.prismaService.user.findUnique({
@@ -76,5 +76,15 @@ export class AuthService {
       accessToken,
       user: { id: user.id, email: user.email, role: user.role },
     };
+  }
+
+  async logout(token: string) {
+    const decoded = this.jwtService.decode(token) as JwtPayload;
+    const now = Math.floor(Date.now() / 1000);
+    const exp = decoded.exp ?? now;
+    const ttl = exp - now;
+    if (ttl > 0) {
+      await this.redisService.set(`bl_${token}`, 'true', ttl);
+    }
   }
 }
