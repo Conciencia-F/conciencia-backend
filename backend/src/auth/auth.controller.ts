@@ -4,6 +4,7 @@ import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { ref } from 'process';
 
 @Controller('auth')
 export class AuthController {
@@ -26,5 +27,10 @@ export class AuthController {
     const token = authHeader.split(' ')[1];
     await this.authService.logout(token);
     return { message: 'Sesión cerrada correctamente' };
+  }
+
+  @Post('refresh')
+  async refreshToken(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refreshAccessToken(refreshToken);
   }
 }
