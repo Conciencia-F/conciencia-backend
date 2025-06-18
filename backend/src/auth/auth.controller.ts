@@ -4,7 +4,6 @@ import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { ref } from 'process';
 
 @Controller('auth')
 export class AuthController {
