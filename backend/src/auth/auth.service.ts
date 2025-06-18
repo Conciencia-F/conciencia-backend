@@ -11,9 +11,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { RedisService } from 'src/shared/redis/redis.service';
 
-// Simulación de user
-const users = new Map<string, { email: string; password: string }>();
-
 @Injectable()
 export class AuthService {
   constructor(
