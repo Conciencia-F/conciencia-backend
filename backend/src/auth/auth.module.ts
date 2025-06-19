@@ -4,11 +4,13 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { RedisModule } from '../shared/redis/redis.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
   imports: [
     PassportModule,
     RedisModule,
+    PrismaModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET as string,
       signOptions: { expiresIn: '1h' },
