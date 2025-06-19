@@ -7,9 +7,9 @@ import { RegisterDto } from './dtos/register.dto';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { RedisService } from 'src/shared/redis/redis.service';
+import { RedisService } from '../shared/redis/redis.service';
 import { TokenInfo } from './interfaces/token-info.interface';
 
 @Injectable()
