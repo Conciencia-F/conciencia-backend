@@ -1,40 +1,36 @@
-version: "3.9"
+version: "3.8"
+
 services:
   backend:
     build:
       context: ./backend
-    ports:
-      - "3000:3000"
+      target: builder # en dev usaremos el stage "builder" -> "runner" para prod
+    image: journal-manager-backend:dev
+    volumes:
+      - ./backend:/app # monta todo tu código en /app
+      - /app/node_modules # preserva node_modules de la imagen
+    working_dir: /app # tu código entra directo en /app
+    command: pnpm start:dev # "start:dev" = "nest start --watch"
     env_file:
       - ./backend/.env
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - redis
-    restart: always
-
-  ai-service:
-    build:
-      context: ./ai-service
     ports:
-      - "8000:8000"
-    env_file:
-      - ./ai-service/.env
-    volumes:
-      - ./ai-service:/app
+      - "3000:3000" # expone tu app NestJS
+    depends_on:
+      - postgres
+      - redis
     restart: always
 
   postgres:
     image: postgres:16
-    restart: always
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: journal_user
       POSTGRES_PASSWORD: journal_pass
       POSTGRES_DB: journal_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
 
   redis:
     image: redis:7-alpine
