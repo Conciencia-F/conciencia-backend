@@ -49,58 +49,87 @@ export class AuthService {
   async login(
     dto: LoginDto,
   ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo; user: any }> {
-    const { email, password } = dto;
+    try {
+      const { email, password } = dto;
 
-    const user = await this.prismaService.user.findUnique({
-      where: { email },
-    });
+      if (!email || !password) {
+        throw new UnauthorizedException(
+          'Por favor, completa todos los campos para iniciar sesión.',
+        );
+      }
 
-    if (!user) {
-      throw new UnauthorizedException('Credenciales Inválidas');
-    }
+      const user = await this.prismaService.user.findUnique({
+        where: { email },
+      });
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales Inválidas');
-    }
+      if (!user) {
+        throw new UnauthorizedException(
+          'Credenciales inválidas. Intente nuevamente.',
+        );
+      }
 
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
+      if (!user.isVerified) {
+        throw new UnauthorizedException(
+          'Tu cuenta no está activada. Verifica tu correo para activar tu cuenta.',
+        );
+      }
 
-    const accessTokenExpiration = 3600; // 1 hora en segundos
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: accessTokenExpiration,
-    });
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException(
+          'Credenciales inválidas. Intente nuevamente.',
+        );
+      }
 
-    const refreshTokenExpiration = 604800; // 1 semana en segundos
-    const refreshToken = this.jwtService.sign(
-      { sub: user.id },
-      { expiresIn: refreshTokenExpiration },
-    );
+      const payload: JwtPayload = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      };
 
-    // Almacenar refresh token en Redis
-    await this.redisService.set(
-      `refresh_${user.id}`,
-      refreshToken,
-      refreshTokenExpiration,
-    );
-
-    return {
-      accessToken: {
-        token: accessToken,
+      const accessTokenExpiration = 3600; // 1 hora en segundos
+      const accessToken = this.jwtService.sign(payload, {
         expiresIn: accessTokenExpiration,
-        type: 'access',
-      },
-      refreshToken: {
-        token: refreshToken,
-        expiresIn: refreshTokenExpiration,
-        type: 'refresh',
-      },
-      user: { id: user.id, email: user.email, role: user.role },
-    };
+      });
+
+      const refreshTokenExpiration = 604800; // 1 semana en segundos
+      const refreshToken = this.jwtService.sign(
+        { sub: user.id },
+        { expiresIn: refreshTokenExpiration },
+      );
+
+      // Almacenar refresh token en Redis
+      await this.redisService.set(
+        `refresh_${user.id}`,
+        refreshToken,
+        refreshTokenExpiration,
+      );
+
+      return {
+        accessToken: {
+          token: accessToken,
+          expiresIn: accessTokenExpiration,
+          type: 'access',
+        },
+        refreshToken: {
+          token: refreshToken,
+          expiresIn: refreshTokenExpiration,
+          type: 'refresh',
+        },
+        user: { id: user.id, email: user.email, role: user.role },
+      };
+    } catch (error) {
+      // Si es una excepción conocida (UnauthorizedException), la lanzamos como está
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      // Para otros errores inesperados, log y lanzar excepción genérica
+      console.error('Error en el proceso de login:', error);
+      throw new UnauthorizedException(
+        'Ocurrió un error durante el inicio de sesión. Intente nuevamente.',
+      );
+    }
   }
 
   async refreshAccessToken(
