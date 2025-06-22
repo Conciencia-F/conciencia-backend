@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from './dtos/register.dto';
@@ -11,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { RedisService } from '../shared/redis/redis.service';
 import { TokenInfo } from './interfaces/token-info.interface';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -18,32 +21,50 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
-  ) {}
+    private readonly emailService: EmailService,
+  ) { }
 
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
 
-    const userExists = await this.prismaService.user.findUnique({
-      where: { email },
-    });
-
-    if (userExists) {
-      throw new ConflictException(`El ${email} se encuentra en uso.`);
+    if (!email || !password || !firstName || !lastName) {
+      throw new BadRequestException('Todos los campos son obligatorios');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    try {
+      const userExists = await this.prismaService.user.findUnique({
+        where: { email },
+      });
 
-    const user = await this.prismaService.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName,
-        lastName,
-        role,
-      },
-    });
+      if (userExists) {
+        throw new ConflictException(`El correo ${email} ya está registrado.`);
+      }
 
-    return { message: 'Usuario registrado correctamente', userId: user.id };
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const user = await this.prismaService.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          firstName,
+          lastName,
+          role,
+          isVerified: false,
+        },
+      });
+
+      const verifyToken = this.jwtService.sign(
+        { sub: user.id, email: user.email },
+        { expiresIn: 15 * 60 }, // 15 minutos
+      );
+
+      await this.emailService.sendVerificationEmail(user.email, verifyToken);
+
+      return { message: 'Usuario registrado correctamente', userId: user.id };
+    } catch (e) {
+      console.error('Error durante el registro:', e);
+      throw new ConflictException('Ocurrió un error durante el registro.');
+    }
   }
 
   async login(
@@ -118,14 +139,14 @@ export class AuthService {
         },
         user: { id: user.id, email: user.email, role: user.role },
       };
-    } catch (error) {
+    } catch (e) {
       // Si es una excepción conocida (UnauthorizedException), la lanzamos como está
-      if (error instanceof UnauthorizedException) {
-        throw error;
+      if (e instanceof UnauthorizedException) {
+        throw e;
       }
 
       // Para otros errores inesperados, log y lanzar excepción genérica
-      console.error('Error en el proceso de login:', error);
+      console.error('Error en el proceso de login:', e);
       throw new UnauthorizedException(
         'Ocurrió un error durante el inicio de sesión. Intente nuevamente.',
       );
@@ -199,9 +220,36 @@ export class AuthService {
         if (decodedRefresh.sub) {
           await this.redisService.del(`refresh_${decodedRefresh.sub}`);
         }
-      } catch (error) {
-        console.error('Error al invalidar refresh token:', error);
+      } catch (e) {
+        console.error('Error al invalidar refresh token:', e);
       }
+    }
+  }
+
+  async verifyEmail(token: string): Promise<string> {
+    try {
+      const payload = this.jwtService.verify<{ sub: string }>(token);
+
+      const user = await this.prismaService.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      if (user.isVerified) {
+        return 'Tu cuenta ya estaba verificada.';
+      }
+
+      await this.prismaService.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      });
+
+      return 'Cuenta verificada correctamente';
+    } catch (e) {
+      throw new BadRequestException('Token inválido o expirado');
     }
   }
 }

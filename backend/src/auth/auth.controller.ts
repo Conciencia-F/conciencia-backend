@@ -1,9 +1,18 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Param,
+  Get,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { TokenInfo } from './interfaces/token-info.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -31,5 +40,10 @@ export class AuthController {
   @Post('refresh')
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     return this.authService.refreshAccessToken(refreshToken);
+  }
+
+  @Get('verify-email/:token')
+  verifyEmail(@Param('token') token: string) {
+    return this.authService.verifyEmail(token);
   }
 }

@@ -5,12 +5,14 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { RedisModule } from '../shared/redis/redis.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
     PassportModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET as string,
       signOptions: { expiresIn: '1h' },
