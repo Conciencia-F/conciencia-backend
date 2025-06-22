@@ -1,9 +1,11 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { RedisException } from './redis.exceptions';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private readonly redisClient: Redis;
+  private readonly logger = new Logger(RedisService.name);
 
   constructor() {
     this.redisClient = new Redis({
@@ -13,15 +15,42 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async set(key: string, value: string, ttl: number) {
-    await this.redisClient.set(key, value, 'EX', ttl);
+    try {
+      await this.redisClient.set(key, value, 'EX', ttl);
+    } catch (error) {
+      this.logger.error(`Error al establecer clave Redis ${key}`, error);
+      throw new RedisException(
+        'SET',
+        key,
+        error instanceof Error ? error : undefined,
+      );
+    }
   }
 
   async get(key: string): Promise<string | null> {
-    return this.redisClient.get(key);
+    try {
+      return await this.redisClient.get(key);
+    } catch (error) {
+      this.logger.error(`Error al obtener clave Redis ${key}`, error);
+      throw new RedisException(
+        'GET',
+        key,
+        error instanceof Error ? error : undefined,
+      );
+    }
   }
 
   async del(key: string) {
-    await this.redisClient.del(key);
+    try {
+      await this.redisClient.del(key);
+    } catch (error) {
+      this.logger.error(`Error al eliminar clave Redis ${key}`, error);
+      throw new RedisException(
+        'DEL',
+        key,
+        error instanceof Error ? error : undefined,
+      );
+    }
   }
 
   onModuleDestroy() {
