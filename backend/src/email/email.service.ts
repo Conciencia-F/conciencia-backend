@@ -47,25 +47,26 @@ export class EmailService {
 
   private async sendEmail(to: string, subject: string, html: string) {
     try {
-      const response = await this.resend.emails.send({
+      const response = (await this.resend.emails.send({
         from: this.from,
         to,
         subject,
         html,
-      }) as { data?: { id?: string }, error?: any };
+      })) as { data?: { id?: string }; error?: any };
 
-      this.logger.debug(`Respuesta completa de Resend: ${JSON.stringify(response)}`);
+      this.logger.debug(
+        `Respuesta completa de Resend: ${JSON.stringify(response)}`,
+      );
 
       if (response?.error) {
         this.logger.error(
-          `Error al enviar email a ${to}: ${response.error.message || 'Error desconocido'}`
+          `Error al enviar email a ${to}: ${response.error.message || 'Error desconocido'}`,
         );
-        throw new EmailException(subject, to, new Error(response.error.message));
       }
 
       if (!response?.data?.id) {
         this.logger.error(
-          `Error al enviar email a ${to}: Respuesta inválida de la API de correo`
+          `Error al enviar email a ${to}: Respuesta inválida de la API de correo`,
         );
         throw new EmailException(subject, to);
       }
