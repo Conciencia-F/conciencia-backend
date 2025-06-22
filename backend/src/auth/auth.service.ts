@@ -22,7 +22,7 @@ export class AuthService {
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
@@ -63,6 +63,9 @@ export class AuthService {
       return { message: 'Usuario registrado correctamente', userId: user.id };
     } catch (e) {
       console.error('Error durante el registro:', e);
+      if (e instanceof ConflictException) {
+        throw e;
+      }
       throw new ConflictException('Ocurrió un error durante el registro.');
     }
   }

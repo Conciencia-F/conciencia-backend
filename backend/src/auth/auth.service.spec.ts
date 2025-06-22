@@ -6,6 +6,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Role } from './interfaces/role.enum';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from 'src/email/email.service';
 
 // Mock de bcrypt
 jest.mock('bcrypt', () => ({
@@ -18,6 +19,7 @@ describe('AuthService', () => {
   let prismaService: PrismaService;
   let jwtService: JwtService;
   let redisService: RedisService;
+  let emailService: EmailService;
 
   // Mock data
   const mockUser = {
@@ -73,6 +75,13 @@ describe('AuthService', () => {
             del: jest.fn(),
           },
         },
+        {
+          provide: EmailService, // Mock para EmailService
+          useValue: {
+            sendVerificationEmail: jest.fn(), // Añade cualquier método mock necesario
+            sendPasswordResetEmail: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -80,6 +89,7 @@ describe('AuthService', () => {
     prismaService = module.get<PrismaService>(PrismaService);
     jwtService = module.get<JwtService>(JwtService);
     redisService = module.get<RedisService>(RedisService);
+    emailService = module.get<EmailService>(EmailService);
 
     jest.clearAllMocks();
   });
@@ -142,6 +152,7 @@ describe('AuthService', () => {
             firstName: registerDto.firstName,
             lastName: registerDto.lastName,
             role: registerDto.role,
+            isVerified: false,
           },
         });
 
@@ -171,7 +182,9 @@ describe('AuthService', () => {
         };
 
         await expect(service.register(registerDto)).rejects.toThrow(
-          new ConflictException(`El ${registerDto.email} se encuentra en uso.`),
+          new ConflictException(
+            `El correo ${registerDto.email} ya está registrado.`,
+          ),
         );
 
         expect(prismaService.user.findUnique).toHaveBeenCalledWith({
