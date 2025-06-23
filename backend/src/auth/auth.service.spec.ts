@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { RedisService } from '../shared/redis/redis.service';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Role } from './interfaces/role.enum';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,40 +61,33 @@ describe('AuthService', () => {
             user: {
               findUnique: jest.fn(),
               create: jest.fn(),
+              update: jest.fn(),
             },
           },
         },
         {
           provide: JwtService,
-          useValue: {
-            sign: jest.fn(),
-            verify: jest.fn(),
-            decode: jest.fn(),
-          },
+          useValue: { sign: jest.fn(), verify: jest.fn(), decode: jest.fn() },
         },
         {
           provide: RedisService,
-          useValue: {
-            set: jest.fn(),
-            get: jest.fn(),
-            del: jest.fn(),
-          },
+          useValue: { set: jest.fn(), get: jest.fn(), del: jest.fn() },
         },
         {
-          provide: EmailService, // Mock para EmailService
+          provide: EmailService,
           useValue: {
-            sendVerificationEmail: jest.fn(), // Añade cualquier método mock necesario
+            sendVerificationEmail: jest.fn(),
             sendPasswordResetEmail: jest.fn(),
           },
         },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
-    redisService = module.get<RedisService>(RedisService);
-    emailService = module.get<EmailService>(EmailService);
+    service = module.get(AuthService);
+    prismaService = module.get(PrismaService);
+    jwtService = module.get(JwtService);
+    redisService = module.get(RedisService);
+    emailService = module.get(EmailService);
 
     jest.clearAllMocks();
   });
@@ -103,6 +101,7 @@ describe('AuthService', () => {
     describe('Successful registration', () => {
       beforeEach(() => {
         // Mock user doesn't exist yet
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
 
         // Mock user creation
@@ -166,7 +165,6 @@ describe('AuthService', () => {
 
     describe('Failed registration - Email already exists', () => {
       beforeEach(() => {
-        // Mock existing user
         jest
           .spyOn(prismaService.user, 'findUnique')
           .mockResolvedValue(mockUser);
@@ -477,7 +475,6 @@ describe('AuthService', () => {
 
     describe('Error handling', () => {
       it('should handle unexpected errors during login', async () => {
-        // Mock database query to throw an error
         jest.spyOn(prismaService.user, 'findUnique').mockImplementation(() => {
           throw new Error('Database connection error');
         });
@@ -487,6 +484,10 @@ describe('AuthService', () => {
             'Ocurrió un error durante el inicio de sesión. Intente nuevamente.',
           ),
         );
+
+        expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+          where: { email: mockLoginDto.email },
+        });
       });
     });
   });
@@ -624,6 +625,85 @@ describe('AuthService', () => {
           'Error al invalidar refresh token:',
           expect.any(Error),
         );
+      });
+    });
+  });
+
+  // Prueba del método verifyEmail
+  describe('verifyEmail', () => {
+    describe('Token inválido o expirado', () => {
+      beforeEach(() => {
+        jest.spyOn(jwtService, 'verify').mockImplementation(() => {
+          throw new Error('Invalid token');
+        });
+      });
+
+      it('debería lanzar BadRequestException para token inválido', async () => {
+        await expect(service.verifyEmail('invalid-token')).rejects.toThrow(
+          new BadRequestException('Token inválido o expirado'),
+        );
+        expect(jwtService.verify).toHaveBeenCalledWith('invalid-token');
+      });
+    });
+
+    describe('Usuario no encontrado', () => {
+      beforeEach(() => {
+        jest.spyOn(jwtService, 'verify').mockReturnValue({ sub: '1' });
+        jest.spyOn(prismaService.user, 'findUnique').mockResolvedValue(null);
+      });
+
+      it('should throw NotFoundException when user does not exist', async () => {
+        await expect(service.verifyEmail('valid-token')).rejects.toThrow(
+          new NotFoundException('Usuario no encontrado'),
+        );
+        expect(jwtService.verify).toHaveBeenCalledWith('valid-token');
+        expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+          where: { id: '1' },
+        });
+      });
+    });
+
+    describe('Cuenta ya verificada', () => {
+      beforeEach(() => {
+        jest.spyOn(jwtService, 'verify').mockReturnValue({ sub: '1' });
+        jest
+          .spyOn(prismaService.user, 'findUnique')
+          .mockResolvedValue({ ...mockUser, isVerified: true });
+      });
+
+      it('debería devolver mensaje cuando ya está verificada', async () => {
+        const result = await service.verifyEmail('valid-token');
+        expect(jwtService.verify).toHaveBeenCalledWith('valid-token');
+        expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+          where: { id: '1' },
+        });
+        expect(result).toBe('Tu cuenta ya estaba verificada.');
+      });
+    });
+
+    describe('Verificación exitosa', () => {
+      beforeEach(() => {
+        jest.spyOn(jwtService, 'verify').mockReturnValue({ sub: '1' });
+        jest
+          .spyOn(prismaService.user, 'findUnique')
+          .mockResolvedValue({ ...mockUser, isVerified: false });
+        jest.spyOn(prismaService.user, 'update').mockResolvedValue({
+          ...mockUser,
+          isVerified: true,
+        });
+      });
+
+      it('debería verificar correctamente la cuenta', async () => {
+        const result = await service.verifyEmail('valid-token');
+        expect(jwtService.verify).toHaveBeenCalledWith('valid-token');
+        expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+          where: { id: '1' },
+        });
+        expect(prismaService.user.update).toHaveBeenCalledWith({
+          where: { id: '1' },
+          data: { isVerified: true },
+        });
+        expect(result).toBe('Cuenta verificada correctamente');
       });
     });
   });

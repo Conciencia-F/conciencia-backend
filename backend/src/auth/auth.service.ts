@@ -230,29 +230,29 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<string> {
+    let payload: { sub: string };
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(token);
-
-      const user = await this.prismaService.user.findUnique({
-        where: { id: payload.sub },
-      });
-
-      if (!user) {
-        throw new NotFoundException('Usuario no encontrado');
-      }
-
-      if (user.isVerified) {
-        return 'Tu cuenta ya estaba verificada.';
-      }
-
-      await this.prismaService.user.update({
-        where: { id: user.id },
-        data: { isVerified: true },
-      });
-
-      return 'Cuenta verificada correctamente';
-    } catch (e) {
+      payload = this.jwtService.verify<{ sub: string }>(token);
+    } catch {
       throw new BadRequestException('Token inválido o expirado');
     }
+
+    const user = await this.prismaService.user.findUnique({
+      where: { id: payload.sub },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.isVerified) {
+      return 'Tu cuenta ya estaba verificada.';
+    }
+
+    await this.prismaService.user.update({
+      where: { id: user.id },
+      data: { isVerified: true },
+    });
+
+    return 'Cuenta verificada correctamente';
   }
 }
