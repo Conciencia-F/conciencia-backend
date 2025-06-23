@@ -13,10 +13,14 @@ import { LoginDto } from './dtos/login.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { TokenInfo } from './interfaces/token-info.interface';
+import { EmailService } from 'src/email/email.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly emailService: EmailService,
+  ) {}
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -45,5 +49,14 @@ export class AuthController {
   @Get('verify-email/:token')
   verifyEmail(@Param('token') token: string) {
     return this.authService.verifyEmail(token);
+  }
+
+  @Post('request-password-reset')
+  async requestPasswordReset(@Body('email') email: string) {
+    const resetToken = await this.authService.generatePasswordResetToken(email);
+
+    await this.emailService.sendPasswordResetEmail(email, resetToken);
+
+    return { message: 'Correo de recuperación enviado' };
   }
 }

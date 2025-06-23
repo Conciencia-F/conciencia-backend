@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from './dtos/register.dto';
 import * as bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
+    private readonly logger = new Logger(AuthService.name),
   ) {}
 
   async register(dto: RegisterDto) {
@@ -254,5 +257,45 @@ export class AuthService {
     });
 
     return 'Cuenta verificada correctamente';
+  }
+
+  async generatePasswordResetToken(email: string): Promise<string> {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        this.logger.warn(
+          `Intento de restablecimiento de contraseña para un usuario no encontrado: ${email}`,
+        );
+
+        throw new NotFoundException('Usuario no encontrado');
+      }
+
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hora
+
+      await this.prismaService.user.update({
+        where: { email },
+        data: {
+          resetToken,
+          resetTokenExpiry: tokenExpiry,
+        },
+      });
+
+      this.logger.log(
+        `Token de restablecimiento generado para el usuario: ${email}`,
+      );
+
+      return resetToken;
+    } catch (e) {
+      this.logger.error(
+        'Error al generar el token de restablecimiento',
+        e.stack,
+      );
+
+      throw new BadRequestException('Token invalidado o expirado');
+    }
   }
 }
