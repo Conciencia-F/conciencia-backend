@@ -59,4 +59,11 @@ export class AuthController {
 
     return { message: 'Correo de recuperación enviado' };
   }
+  @Post('reset-password')
+  async resetPassword(
+    @Body('token') token: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.resetPassword(token, newPassword);
+  }
 }

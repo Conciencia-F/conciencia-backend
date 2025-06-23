@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { RegisterDto } from './dtos/register.dto';
 import * as bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
+import * as crypto from 'crypto';
 import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -297,6 +297,38 @@ export class AuthService {
       );
 
       throw new BadRequestException('Token invalidado o expirado');
+    }
+  }
+  async resetPassword(token: string, newPassword: string): Promise<string> {
+    try {
+      const user = await this.prismaService.user.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            gte: new Date(),
+          },
+        },
+      });
+
+      if (!user) {
+        throw new BadRequestException('Token inválido o expirado');
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await this.prismaService.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+
+      return 'Contraseña actualizada correctamente';
+    } catch (e) {
+      this.logger.error('Error al cambiar la contraseña', e.stack);
+      throw new BadRequestException('No se pudo cambiar la contraseña');
     }
   }
 }
