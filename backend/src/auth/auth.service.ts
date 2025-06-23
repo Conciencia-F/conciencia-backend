@@ -299,6 +299,7 @@ export class AuthService {
       throw new BadRequestException('Token invalidado o expirado');
     }
   }
+
   async resetPassword(token: string, newPassword: string): Promise<string> {
     try {
       const user = await this.prismaService.user.findFirst({
