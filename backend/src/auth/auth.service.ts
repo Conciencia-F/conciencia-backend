@@ -19,12 +19,13 @@ import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
-    private readonly logger = new Logger(AuthService.name),
   ) {}
 
   async register(dto: RegisterDto) {
