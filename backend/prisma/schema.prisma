@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Gestion de Usuarios y Roles
+
 model User {
   id                String    @id @default(cuid())
   email             String    @unique
@@ -43,4 +45,68 @@ enum RoleName {
   REVIEWER
   STYLISTIC_EDITOR
   DESIGNER
+}
+
+// Logica de Negocio
+// Gestion de Articulos y Revisores
+
+enum ArticleType {
+  SCIENTIFIC_ARTICLE
+  STUDENT_LOG
+}
+
+model Article {
+  id        String        @id @default(cuid())
+  title     String
+  abstract  String
+  status    ArticleStatus @default(PENDING_PRE_FILTERING)
+  themeId   String?
+  journalId String?
+
+  type      ArticleType
+
+  plagiarismScore      Int?
+  aiContentPercentage  Int?
+  plagiarismReportUrl  String?
+
+  authors   AuthorsOnArticles[]
+  versions  ArticleVersion[]
+  theme     Theme?              @relation(fields: [themeId], references: [id])
+  journal   Journal?            @relation(fields: [journalId], references: [id])
+  tasks     ProductionTask[]
+
+  forFutureJournal Boolean @default(false)
+}
+
+model AuthorsOnArticles {
+  userId    String
+  articleId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+}
+
+model ArticleVersion {
+  id             String   @id @default(cuid())
+  fileUrl        String
+  versionNotes   String?
+  submissionDate DateTime @default(now())
+  articleId      String
+  isLatest       Boolean  @default(true)
+
+  article Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  reviews Review[]
+}
+
+model Review {
+  id                  String               @id @default(cuid())
+  recommendation      ReviewRecommendation
+  commentsForDirector String?
+  commentsForAuthor   String?
+  reviewerId          String
+  articleVersionId    String
+
+  reviewer       User           @relation(fields: [reviewerId], references: [id])
+  articleVersion ArticleVersion @relation(fields: [articleVersionId], references: [id])
 }
