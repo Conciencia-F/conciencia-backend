@@ -8,37 +8,39 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
+  id                String    @id @default(cuid())
+  email             String    @unique
   password          String
   firstName         String
   lastName          String
-  role              Role     @default(STUDENT_REGULAR)
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  resetToken        String?  @unique
+  roleId            String
+  isVerified        Boolean   @default(false)
+  deletedAt         DateTime?
+  verificationToken String?   @unique
+  resetToken        String?   @unique
   resetTokenExpiry  DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  tokens            Token[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  role              Role                @relation(fields: [roleId], references: [id])
+// articlesAuthored  AuthorsOnArticles[]
+// reviewsAssigned   Review[]
+// tasksAssigned     ProductionTask[]
+// refreshTokens     RefreshToken[]
 }
 
-enum Role {
+model Role {
+  id    String   @id @default(cuid())
+  name  RoleName @unique
+  users User[]
+}
+
+enum RoleName {
   ADMIN
-  RESEARCHER
-  STUDENT_REGULAR
-  STUDENT_PROF
+  DIRECTOR
+  AUTHOR
   REVIEWER
-  EDITOR
+  STYLISTIC_EDITOR
+  DESIGNER
 }
-
-model Token {
-  id          String   @id @default(uuid())
-  token       String   @unique
-  expires     DateTime
-  blacklisted Boolean  @default(false)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  @@index([token, blacklisted])
-}
-
