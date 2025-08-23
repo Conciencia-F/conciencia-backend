@@ -1,20 +1,18 @@
-version: "3.8"
-
 services:
   backend:
     build:
       context: ./backend
       target: builder # en dev usaremos el stage "builder" -> "runner" para prod
-    image: journal-manager-backend:dev
+    image: conciencia-backend:dev
     volumes:
-      - ./backend:/app # monta todo tu código en /app
+      - ./backend:/app # monta todo el código en /app
       - /app/node_modules # preserva node_modules de la imagen
     working_dir: /app # tu código entra directo en /app
     command: pnpm start:dev # "start:dev" = "nest start --watch"
     env_file:
       - ./backend/.env
     ports:
-      - "3000:3000" # expone tu app NestJS
+      - "3000:3000" # expone app NestJS
     depends_on:
       - postgres
       - redis
@@ -22,10 +20,12 @@ services:
 
   postgres:
     image: postgres:16
+    env_file:
+      - ./backend/.env
     environment:
-      POSTGRES_USER: journal_user
-      POSTGRES_PASSWORD: journal_pass
-      POSTGRES_DB: journal_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
