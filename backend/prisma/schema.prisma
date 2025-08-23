@@ -26,10 +26,10 @@ model User {
   updatedAt         DateTime  @updatedAt
 
   role              Role                @relation(fields: [roleId], references: [id])
-// articlesAuthored  AuthorsOnArticles[]
-// reviewsAssigned   Review[]
-// tasksAssigned     ProductionTask[]
-// refreshTokens     RefreshToken[]
+  articlesAuthored  AuthorsOnArticles[]
+  reviewsAssigned   Review[]
+  tasksAssigned     ProductionTask[]
+  refreshTokens     RefreshToken[]
 }
 
 model Role {
@@ -109,4 +109,72 @@ model Review {
 
   reviewer       User           @relation(fields: [reviewerId], references: [id])
   articleVersion ArticleVersion @relation(fields: [articleVersionId], references: [id])
+}
+
+model ProductionTask {
+  id          String      @id @default(cuid())
+  type        TaskType
+  status      TaskStatus  @default(PENDING)
+  fileUrl     String?
+  assigneeId  String
+
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+
+  article   Article @relation(fields: [articleId], references: [id])
+  articleId String
+  assignee  User    @relation(fields: [assigneeId], references: [id])
+}
+
+model Journal {
+  id              String    @id @default(cuid())
+  title           String
+  publicationDate DateTime
+  finalPdfUrl     String?    
+  articles        Article[]
+}
+
+model Theme {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  isActive Boolean   @default(false)
+  articles Article[]
+}
+
+// Enums
+enum ArticleStatus {
+  PENDING_PRE_FILTERING
+  ACCEPTED_FOR_PRELIMINARY_REVIEW
+  ACCEPTED_FOR_FUTURE_JOURNAL
+  REJECTED_BY_PRE_FILTERING
+  PENDING_REVIEWER_ASSIGNMENT
+  IN_REVIEW
+  REVIEW_COMPLETED
+  PENDING_AUTHOR_CORRECTIONS
+  RESUBMITTED_PENDING_APPROVAL
+  READY_FOR_STYLISTIC_EDITION
+  IN_STYLISTIC_EDITION
+  STYLISTIC_EDITION_COMPLETED
+  READY_FOR_LAYOUT
+  IN_LAYOUT
+  LAYOUT_COMPLETED
+  READY_FOR_FINAL_APPROVAL
+  PUBLISHED
+  REJECTED
+}
+
+enum ReviewRecommendation {
+  FIT_FOR_STYLISTIC_EDITION
+  REQUIRES_CORRECTIONS
+}
+
+enum TaskType {
+  STYLISTIC_EDITION
+  LAYOUT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
 }
