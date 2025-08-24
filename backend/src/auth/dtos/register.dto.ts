@@ -15,7 +15,6 @@ import { ApiProperty } from '@nestjs/swagger';
  * NestJS usará esta clase para validar automáticamente el cuerpo de la petición.
  */
 export class RegisterDto {
-  // 2. Añade el decorador a cada propiedad
   @ApiProperty({
     description: 'El nombre del usuario',
     example: 'Mateo',
