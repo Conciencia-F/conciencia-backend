@@ -1,3 +1,8 @@
+//  Módulos Nativos de Node.js
+import * as crypto from 'crypto';
+
+// Dependencias de Terceros (npm)
+import { RoleName } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
@@ -6,17 +11,17 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { RegisterDto } from './dtos/register.dto';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
-import { LoginDto } from './dtos/login.dto';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { RedisService } from '../shared/redis/redis.service';
-import { TokenInfo } from './interfaces/token-info.interface';
+import * as bcrypt from 'bcrypt';
+
+//  Módulos Internos de la Aplicación
 import { EmailService } from 'src/email/email.service';
-import { RoleName } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../shared/redis/redis.service';
+import { LoginDto } from './dtos/login.dto';
+import { RegisterDto } from './dtos/register.dto';
+import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { TokenInfo } from './interfaces/token-info.interface';
 
 @Injectable()
 export class AuthService {

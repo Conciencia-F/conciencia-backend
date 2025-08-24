@@ -1,14 +1,15 @@
+// Dependencias de terceros
+import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { RoleName } from '@prisma/client';
+
+// Modulos Internos de la Aplicacion
+import { EmailService } from '../email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../shared/redis/redis.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
-import { RoleName } from '@prisma/client';
-
-// --- 1. Importamos los otros servicios que necesitamos simular ---
-import { EmailService } from '../email/email.service';
-import { JwtService } from '@nestjs/jwt';
-import { RedisService } from '../shared/redis/redis.service';
-import { PrismaService } from '../prisma/prisma.service';
 
 // Mock de AuthService. No necesitamos la implementación real, solo sus funciones.
 const mockAuthService = {

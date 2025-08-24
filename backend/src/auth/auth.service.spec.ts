@@ -1,13 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from './auth.service';
-import { JwtService } from '@nestjs/jwt';
-import { RedisService } from '../shared/redis/redis.service';
-import { BadRequestException, ConflictException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from 'src/email/email.service';
-// 1. Importamos el enum RoleName de Prisma
+// Dependencias de terceros
 import { RoleName } from '@prisma/client';
+import { BadRequestException, ConflictException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Test, TestingModule } from '@nestjs/testing';
+import * as bcrypt from 'bcrypt';
+
+// Módulos Internos de la Aplicacion
+import { EmailService } from 'src/email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../shared/redis/redis.service';
+import { AuthService } from './auth.service';
 
 // Mock de bcrypt
 jest.mock('bcrypt', () => ({
@@ -21,7 +23,7 @@ describe('AuthService', () => {
   let jwtService: JwtService;
   let emailService: EmailService;
 
-  // --- CORRECCIÓN: Creamos un mock de usuario completo ---
+  // Creamos un mock de usuario completo ---
   // Este objeto simula un registro de usuario real de la base de datos,
   // cumpliendo con todos los campos que TypeScript espera.
   const mockUser = {

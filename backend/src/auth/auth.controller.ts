@@ -1,21 +1,24 @@
+// Dependencias de Terceros
 import {
-  Controller,
-  Post,
   Body,
-  Req,
-  UseGuards,
-  Param,
+  Controller,
   Get,
   HttpStatus,
+  Param,
+  Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dtos/register.dto';
-import { LoginDto } from './dtos/login.dto';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { TokenInfo } from './interfaces/token-info.interface';
+
+// Módulos Internos de la Aplicación
 import { EmailService } from 'src/email/email.service';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dtos/login.dto';
+import { RegisterDto } from './dtos/register.dto';
+import { TokenInfo } from './interfaces/token-info.interface';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
