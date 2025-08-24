@@ -7,38 +7,185 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Gestion de Usuarios y Roles
+
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
+  id                String    @id @default(cuid())
+  email             String    @unique
   password          String
   firstName         String
   lastName          String
-  role              Role     @default(STUDENT_REGULAR)
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  resetToken        String?  @unique
+  roleId            String
+  isVerified        Boolean   @default(false)
+  deletedAt         DateTime?
+  verificationToken String?   @unique
+  resetToken        String?   @unique
   resetTokenExpiry  DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  tokens            Token[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  role              Role                @relation(fields: [roleId], references: [id])
+  articlesAuthored  AuthorsOnArticles[]
+  reviewsAssigned   Review[]
+  tasksAssigned     ProductionTask[]
+  refreshTokens     RefreshToken[]
 }
 
-enum Role {
+model Role {
+  id    String   @id @default(cuid())
+  name  RoleName @unique
+  users User[]
+}
+
+enum RoleName {
   ADMIN
-  RESEARCHER
-  STUDENT_REGULAR
-  STUDENT_PROF
+  DIRECTOR
+  AUTHOR
   REVIEWER
-  EDITOR
+  STYLISTIC_EDITOR
+  DESIGNER
 }
 
-model Token {
-  id          String   @id @default(uuid())
-  token       String   @unique
-  expires     DateTime
-  blacklisted Boolean  @default(false)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  @@index([token, blacklisted])
+// Logica de Negocio
+// Gestion de Articulos y Revisores
+
+enum ArticleType {
+  SCIENTIFIC_ARTICLE
+  STUDENT_LOG
 }
 
+model Article {
+  id        String        @id @default(cuid())
+  title     String
+  abstract  String
+  status    ArticleStatus @default(PENDING_PRE_FILTERING)
+  themeId   String?
+  journalId String?
+
+  type      ArticleType
+
+  plagiarismScore      Int?
+  aiContentPercentage  Int?
+  plagiarismReportUrl  String?
+
+  authors   AuthorsOnArticles[]
+  versions  ArticleVersion[]
+  theme     Theme?              @relation(fields: [themeId], references: [id])
+  journal   Journal?            @relation(fields: [journalId], references: [id])
+  tasks     ProductionTask[]
+
+  forFutureJournal Boolean @default(false)
+}
+
+model AuthorsOnArticles {
+  userId    String
+  articleId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, articleId])
+}
+
+model ArticleVersion {
+  id             String   @id @default(cuid())
+  fileUrl        String
+  versionNotes   String?
+  submissionDate DateTime @default(now())
+  articleId      String
+  isLatest       Boolean  @default(true)
+
+  article Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  reviews Review[]
+}
+
+model Review {
+  id                  String               @id @default(cuid())
+  recommendation      ReviewRecommendation
+  commentsForDirector String?
+  commentsForAuthor   String?
+  reviewerId          String
+  articleVersionId    String
+
+  reviewer       User           @relation(fields: [reviewerId], references: [id])
+  articleVersion ArticleVersion @relation(fields: [articleVersionId], references: [id])
+}
+
+model ProductionTask {
+  id          String      @id @default(cuid())
+  type        TaskType
+  status      TaskStatus  @default(PENDING)
+  fileUrl     String?
+  assigneeId  String
+
+  createdAt   DateTime    @default(now())
+  completedAt DateTime?
+
+  article   Article @relation(fields: [articleId], references: [id])
+  articleId String
+  assignee  User    @relation(fields: [assigneeId], references: [id])
+}
+
+model Journal {
+  id              String    @id @default(cuid())
+  title           String
+  publicationDate DateTime
+  finalPdfUrl     String?    
+  articles        Article[]
+}
+
+model Theme {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  isActive Boolean   @default(false)
+  articles Article[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  hashedToken String   @unique
+  userId    String
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Enums
+enum ArticleStatus {
+  PENDING_PRE_FILTERING
+  ACCEPTED_FOR_PRELIMINARY_REVIEW
+  ACCEPTED_FOR_FUTURE_JOURNAL
+  REJECTED_BY_PRE_FILTERING
+  PENDING_REVIEWER_ASSIGNMENT
+  IN_REVIEW
+  REVIEW_COMPLETED
+  PENDING_AUTHOR_CORRECTIONS
+  RESUBMITTED_PENDING_APPROVAL
+  READY_FOR_STYLISTIC_EDITION
+  IN_STYLISTIC_EDITION
+  STYLISTIC_EDITION_COMPLETED
+  READY_FOR_LAYOUT
+  IN_LAYOUT
+  LAYOUT_COMPLETED
+  READY_FOR_FINAL_APPROVAL
+  PUBLISHED
+  REJECTED
+}
+
+enum ReviewRecommendation {
+  FIT_FOR_STYLISTIC_EDITION
+  REQUIRES_CORRECTIONS
+}
+
+enum TaskType {
+  STYLISTIC_EDITION
+  LAYOUT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
