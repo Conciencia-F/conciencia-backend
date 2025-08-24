@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "scripts": {
     "build": "npx prisma generate && nest build",
     "prisma:generate": "npx prisma generate",
@@ -27,6 +30,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.2.0",
     "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.10.1",
     "bcrypt": "^6.0.0",

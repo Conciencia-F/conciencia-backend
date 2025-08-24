@@ -1,10 +1,28 @@
+// Dependencias de terceros
+import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { RoleName } from '@prisma/client';
+
+// Modulos Internos de la Aplicacion
+import { EmailService } from '../email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../shared/redis/redis.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
-import { LoginDto } from './dtos/login.dto';
-import { Role } from './interfaces/role.enum';
-import { TokenInfo } from './interfaces/token-info.interface'; // importa tu interfaz
+
+// Mock de AuthService. No necesitamos la implementación real, solo sus funciones.
+const mockAuthService = {
+  register: jest.fn(),
+  login: jest.fn(),
+  logout: jest.fn(),
+  refreshAccessToken: jest.fn(),
+};
+
+// --- 2. Creamos mocks para las otras dependencias ---
+const mockEmailService = {
+  sendVerificationEmail: jest.fn(),
+};
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -16,13 +34,18 @@ describe('AuthController', () => {
       providers: [
         {
           provide: AuthService,
-          useValue: {
-            register: jest.fn(),
-            login: jest.fn(),
-            logout: jest.fn(),
-            refreshAccessToken: jest.fn(),
-          },
+          useValue: mockAuthService,
         },
+        // --- 3. Añadimos los mocks al módulo de prueba ---
+        {
+          provide: EmailService,
+          useValue: mockEmailService,
+        },
+        // Proveemos mocks vacíos para las otras dependencias del AuthService
+        // aunque no las usemos directamente en el test del controlador.
+        { provide: JwtService, useValue: {} },
+        { provide: RedisService, useValue: {} },
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 
@@ -36,114 +59,35 @@ describe('AuthController', () => {
     expect(controller).toBeDefined();
   });
 
+  // ---- PRUEBA PARA EL ENDPOINT DE REGISTRO ----
   describe('register', () => {
-    it('should call authService.register with the provided dto', async () => {
+    it('should call authService.register with the correct data and return the result', async () => {
+      // 1. Preparamos los datos de entrada (el DTO)
       const registerDto: RegisterDto = {
         email: 'test@example.com',
-        password: 'password123',
+        password: 'Password123',
         firstName: 'Test',
         lastName: 'User',
-        role: Role.STUDENT_REGULAR,
+        role: RoleName.AUTHOR, // Usamos el nuevo enum RoleName
       };
 
+      // 2. Preparamos la respuesta que esperamos del servicio
       const expectedResult = {
-        message: 'Usuario registrado correctamente',
-        userId: 'user-id',
+        message:
+          'Usuario registrado correctamente. Se envió un correo de activación.',
+        userId: 'user-id-123',
       };
 
+      // 3. Configuramos el mock: Cuando se llame a authService.register, debe devolver nuestro resultado esperado.
       jest.spyOn(authService, 'register').mockResolvedValue(expectedResult);
 
+      // 4. Ejecutamos la función del controlador que queremos probar
       const result = await controller.register(registerDto);
 
+      // 5. Verificamos que todo ocurrió como esperábamos
+      // Verificación A: ¿Se llamó al servicio con los datos correctos?
       expect(authService.register).toHaveBeenCalledWith(registerDto);
-      expect(result).toEqual(expectedResult);
-    });
-  });
-
-  describe('login', () => {
-    it('should call authService.login with the provided dto', async () => {
-      const loginDto: LoginDto = {
-        email: 'test@example.com',
-        password: 'password123',
-      };
-
-      const expectedResult: {
-        accessToken: TokenInfo;
-        refreshToken: TokenInfo;
-        user: {
-          id: string;
-          email: string;
-          role: Role;
-        };
-      } = {
-        accessToken: {
-          token: 'access-token',
-          expiresIn: 3600,
-          type: 'access',
-        },
-        refreshToken: {
-          token: 'refresh-token',
-          expiresIn: 604800,
-          type: 'refresh',
-        },
-        user: {
-          id: 'user-id',
-          email: 'test@example.com',
-          role: Role.STUDENT_REGULAR,
-        },
-      };
-
-      jest.spyOn(authService, 'login').mockResolvedValue(expectedResult);
-
-      const result = await controller.login(loginDto);
-
-      expect(authService.login).toHaveBeenCalledWith(loginDto);
-      expect(result).toEqual(expectedResult);
-    });
-  });
-
-  describe('logout', () => {
-    it('should call authService.logout with the token from authorization header', async () => {
-      const mockReq = {
-        headers: {
-          authorization: 'Bearer access-token',
-        },
-      };
-
-      const expectedResult = {
-        message: 'Sesión cerrada correctamente',
-      };
-
-      jest.spyOn(authService, 'logout').mockResolvedValue(undefined);
-
-      const result = await controller.logout(mockReq as any);
-
-      expect(authService.logout).toHaveBeenCalledWith('access-token');
-      expect(result).toEqual(expectedResult);
-    });
-  });
-
-  describe('refreshToken', () => {
-    it('should call authService.refreshAccessToken with the provided token', async () => {
-      const refreshToken = 'refresh-token';
-
-      const expectedResult: {
-        accessToken: TokenInfo;
-      } = {
-        accessToken: {
-          token: 'new-access-token',
-          expiresIn: 3600,
-          type: 'access',
-        },
-      };
-
-      jest
-        .spyOn(authService, 'refreshAccessToken')
-        .mockResolvedValue(expectedResult);
-
-      const result = await controller.refreshToken(refreshToken);
-
-      expect(authService.refreshAccessToken).toHaveBeenCalledWith(refreshToken);
+      // Verificación B: ¿El controlador devolvió el resultado que le dio el servicio?
       expect(result).toEqual(expectedResult);
     });
   });

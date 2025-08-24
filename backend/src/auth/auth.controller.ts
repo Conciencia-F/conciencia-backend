@@ -1,20 +1,26 @@
+// Dependencias de Terceros
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
   Req,
   UseGuards,
-  Param,
-  Get,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dtos/register.dto';
-import { LoginDto } from './dtos/login.dto';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { TokenInfo } from './interfaces/token-info.interface';
-import { EmailService } from 'src/email/email.service';
 
+// Módulos Internos de la Aplicación
+import { EmailService } from 'src/email/email.service';
+import { AuthService } from './auth.service';
+import { LoginDto } from './dtos/login.dto';
+import { RegisterDto } from './dtos/register.dto';
+import { TokenInfo } from './interfaces/token-info.interface';
+import { JwtAuthGuard } from './jwt-auth.guard';
+
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -23,6 +29,21 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  // Documentación Swagger
+  @ApiOperation({ summary: 'Registrar un nuevo usuario' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Usuario registrado exitosamente.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Los datos proporcionados son inválidos.',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'El correo electrónico ya está en uso.',
+  })
+  // Fin del swagger
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
