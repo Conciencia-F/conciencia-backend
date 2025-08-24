@@ -6,6 +6,7 @@ import {
   UseGuards,
   Param,
   Get,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
@@ -14,7 +15,9 @@ import { Request } from 'express';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { EmailService } from 'src/email/email.service';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -23,6 +26,21 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  // Documentación Swagger
+  @ApiOperation({ summary: 'Registrar un nuevo usuario' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Usuario registrado exitosamente.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Los datos proporcionados son inválidos.',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'El correo electrónico ya está en uso.',
+  })
+  // Fin del swagger
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
