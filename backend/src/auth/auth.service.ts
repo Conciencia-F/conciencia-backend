@@ -16,6 +16,7 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { RedisService } from '../shared/redis/redis.service';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { EmailService } from 'src/email/email.service';
+import { RoleName } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -26,13 +27,22 @@ export class AuthService {
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
+  /**
+   * Maneja la lógica de negocio para registrar un nuevo usuario.
+   * @param dto Los datos del usuario ya validados por el RegisterDto.
+   */
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
+    const allowedPublicRoles: RoleName[] = [
+      RoleName.AUTHOR,
+      RoleName.STUDENT,
+      RoleName.INVESTIGATOR,
+    ];
 
-    if (!email || !password || !firstName || !lastName) {
-      throw new BadRequestException('Todos los campos son obligatorios');
+    if (!allowedPublicRoles.includes(role)) {
+      throw new BadRequestException('El rol seleccionado no es válido');
     }
 
     try {
@@ -41,7 +51,7 @@ export class AuthService {
       });
 
       if (userExists) {
-        throw new ConflictException(`El correo ${email} ya está registrado.`);
+        throw new ConflictException('El correo se encuentra en uso.');
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -52,25 +62,35 @@ export class AuthService {
           password: hashedPassword,
           firstName,
           lastName,
-          role,
+          role: {
+            connect: { name: role },
+          },
           isVerified: false,
         },
       });
 
       const verifyToken = this.jwtService.sign(
-        { sub: user.id, email: user.email },
-        { expiresIn: 15 * 60 }, // 15 minutos
+        { sub: user.id },
+        { expiresIn: '15m' },
       );
 
       await this.emailService.sendVerificationEmail(user.email, verifyToken);
 
-      return { message: 'Usuario registrado correctamente', userId: user.id };
+      return {
+        message:
+          'Usuario registrado correctamente. Se envió un correo de activación.',
+        userId: user.id,
+      };
     } catch (e) {
-      console.error('Error durante el registro:', e);
-      if (e instanceof ConflictException) {
+      this.logger.error('Error durante el registro:', e.stack);
+
+      if (e instanceof ConflictException || e instanceof BadRequestException) {
         throw e;
       }
-      throw new ConflictException('Ocurrió un error durante el registro.');
+
+      throw new BadRequestException(
+        'Ocurrió un error inesperado durante el registro.',
+      );
     }
   }
 
@@ -88,6 +108,9 @@ export class AuthService {
 
       const user = await this.prismaService.user.findUnique({
         where: { email },
+        include: {
+          role: true,
+        },
       });
 
       if (!user) {
@@ -112,7 +135,7 @@ export class AuthService {
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role.name,
       };
 
       const accessTokenExpiration = 3600; // 1 hora en segundos
@@ -126,7 +149,6 @@ export class AuthService {
         { expiresIn: refreshTokenExpiration },
       );
 
-      // Almacenar refresh token en Redis
       await this.redisService.set(
         `refresh_${user.id}`,
         refreshToken,
@@ -144,15 +166,12 @@ export class AuthService {
           expiresIn: refreshTokenExpiration,
           type: 'refresh',
         },
-        user: { id: user.id, email: user.email, role: user.role },
+        user: { id: user.id, email: user.email, role: user.role.name },
       };
     } catch (e) {
-      // Si es una excepción conocida (UnauthorizedException), la lanzamos como está
       if (e instanceof UnauthorizedException) {
         throw e;
       }
-
-      // Para otros errores inesperados, log y lanzar excepción genérica
       console.error('Error en el proceso de login:', e);
       throw new UnauthorizedException(
         'Ocurrió un error durante el inicio de sesión. Intente nuevamente.',
@@ -164,12 +183,9 @@ export class AuthService {
     refreshToken: string,
   ): Promise<{ accessToken: TokenInfo }> {
     try {
-      //Verificamos firma y expiración del refresh token
       const decoded = this.jwtService.verify(refreshToken) as { sub: string };
       const userId = decoded.sub;
 
-      // Verificamos si el refresh token esta en Redis
-      // Si fue invalidado por logout no estara
       const storedToken = await this.redisService.get(`refresh_${userId}`);
       if (!storedToken || storedToken !== refreshToken) {
         throw new UnauthorizedException('Refresh token inválido');
@@ -177,6 +193,9 @@ export class AuthService {
 
       const user = await this.prismaService.user.findUnique({
         where: { id: userId },
+        include: {
+          role: true,
+        },
       });
       if (!user) {
         throw new UnauthorizedException('Usuario no encontrado');
@@ -185,7 +204,7 @@ export class AuthService {
       const payload: JwtPayload = {
         sub: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role.name,
       };
 
       const accessTokenExpiration = 3600;
@@ -204,13 +223,11 @@ export class AuthService {
       if (e instanceof UnauthorizedException) {
         throw e;
       }
-
       throw new UnauthorizedException('Token de refresco inválido o expirado');
     }
   }
 
   async logout(accessToken: string, refreshToken?: string) {
-    // Invalidar access token
     const decodedAccess = this.jwtService.decode(accessToken) as JwtPayload;
     const now = Math.floor(Date.now() / 1000);
     const exp = decodedAccess.exp ?? now;

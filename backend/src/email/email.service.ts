@@ -83,7 +83,7 @@ export class EmailService {
   private buildTemplate(title: string, url: string, action: string): string {
     return `
 <div style="text-align: center; font-family:sans-serif; margin:20px;padding:20px; border-radius:20px ">
-  <h1 style="color: #b565e2;margin-bottom: 20px">Journal Manager</h1>
+  <h1 style="color: #b565e2;margin-bottom: 20px">Conciencia</h1>
   <h3 style="color: #b565e2;">${title}</h3>
   <p style="margin-bottom:30px">Haz clic en el botón para continuar:</p>
   <div style="margin-bottom:30px">
@@ -96,7 +96,7 @@ export class EmailService {
         font-weight: bold;">${action}</a>
   </div>
   <p>Si no solicitaste esta acción, ignora este correo.</p>
-  <p>- El equipo de Journal Manager</p>
+  <p>- El equipo de Conciencia</p>
 </div>`;
   }
 }
