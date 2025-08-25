@@ -1,8 +1,11 @@
+// Dependencias de terceros
 import { Module } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
+// Módulos Internos de la Aplicación
+import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
@@ -14,11 +17,6 @@ import { RedisModule } from './shared/redis/redis.module';
         {
           ttl: 60,
           limit: 30,
-        },
-        {
-          ttl: 60,
-          limit: 5,
-          name: 'auth',
         },
       ],
     }),
