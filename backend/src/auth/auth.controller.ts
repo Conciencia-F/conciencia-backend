@@ -19,6 +19,7 @@ import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -48,7 +49,20 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
+  // Documentación del Swagger
+  @ApiOperation({ summary: 'Iniciar sesion de un usuario' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Inicio de sesion exitoso. Devuelve tokens de acceso y de refresco',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Credenciales incorrectas o cuenta no verificada',
+  })
+  // Fin del Swagger
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }

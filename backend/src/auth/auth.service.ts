@@ -105,12 +105,6 @@ export class AuthService {
     try {
       const { email, password } = dto;
 
-      if (!email || !password) {
-        throw new UnauthorizedException(
-          'Por favor, completa todos los campos para iniciar sesión.',
-        );
-      }
-
       const user = await this.prismaService.user.findUnique({
         where: { email },
         include: {
@@ -154,32 +148,35 @@ export class AuthService {
         { expiresIn: refreshTokenExpiration },
       );
 
-      await this.redisService.set(
-        `refresh_${user.id}`,
-        refreshToken,
-        refreshTokenExpiration,
-      );
+      const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+      await this.prismaService.refreshToken.create({
+        data: {
+          hashedToken: hashedRefreshToken,
+          userId: user.id,
+        },
+      });
 
       return {
         accessToken: {
           token: accessToken,
           expiresIn: accessTokenExpiration,
-          type: 'access',
         },
         refreshToken: {
           token: refreshToken,
           expiresIn: refreshTokenExpiration,
-          type: 'refresh',
         },
         user: { id: user.id, email: user.email, role: user.role.name },
       };
     } catch (e) {
+      this.logger.error('Error en el proceso de login:', e.stack);
+
       if (e instanceof UnauthorizedException) {
         throw e;
       }
-      console.error('Error en el proceso de login:', e);
+
       throw new UnauthorizedException(
-        'Ocurrió un error durante el inicio de sesión. Intente nuevamente.',
+        'Ocurrió un error inesperado durante el inicio de sesión.',
       );
     }
   }
@@ -221,7 +218,6 @@ export class AuthService {
         accessToken: {
           token: newAccessToken,
           expiresIn: accessTokenExpiration,
-          type: 'access',
         },
       };
     } catch (e) {
