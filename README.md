@@ -1,107 +1,61 @@
-# Journal Manager
+# Conciencia Backend
 
-## Descripción
+Este es el repositorio para el backend del proyecto **Conciencia**, construido con
+**NestJS**, **Prisma**, **PostgreSQL** y **Redis**, y orquestado con **Docker**.
 
-Backend de Journal Manager
+## Desarrollo Local
 
----
+Sigue estos pasos para levantar el entorno de desarrollo en tu máquina local.
 
-## Requisitos
+### Prerrequisitos
 
-- **Node.js** (v16 o superior).
-- **Docker** y **Docker Compose**.
-- **pnpm** para gestionar dependencias.
+Asegúrate de tener instalado el siguiente software:
 
----
+- **Git**
+- **Docker**
+- **Node.js** (v20 o superior)
+- **pnpm** (puedes instalarlo con `npm install -g pnpm`)
 
-## Instalación
-
-1. Clona este repositorio:
-
-   ```bash
-   git clone https://github.com/Journal-Manager/journal-manager.git
-   ```
-
-2. Moverse al backend
+### 1. Clonar el Repositorio
 
 ```bash
-cd backend
+git clone <URL_DEL_REPOSITORIO>
+cd conciencia-backend
 ```
 
-3. Instala las dependencias:
+## Configurar las Variables de Entorno
+
+El proyecto utiliza un archivo .env para gestionar las variables de entorno.
+Crea una copia del archivo de ejemplo:
 
 ```bash
-pnpm install
+cp .env.example .env
 ```
 
-4. Configura las variables de entorno en un archivo `.env` basado en el archivo `.env.example`.
+## Levantar el entorno
 
----
-
-## Configuración de servicios
-
-### Configuración de Redis y PostgreSQL
-
-1. Asegúrate de que Docker y Docker Compose están instalados.
-
-2. Ejecuta los servicios incluidos en el archivo `docker-compose.yml`:
-
-   ```bash
-   docker-compose up -d redis postgres
-   ```
-
-3. Verifica que Redis está funcionando:
-
-   ```bash
-   docker exec -it <redis-container-id> redis-cli ping
-   ```
-
-   Debe responder con `PONG`.
-
-4. Verifica que PostgreSQL está funcionando:
-
-   ```bash
-   docker exec -it <postgres-container-id> psql -U <your-username> -d <your-database>
-   ```
-
-   Asegúrate de que puedes acceder a la base de datos correctamente.
-
----
-
-## Uso
-
-### Desarrollo
-
-1. Inicia el servidor backend:
-
-   ```bash
-   pnpm start:dev
-   ```
-
-2. Accede al servidor en `http://localhost:3000`.
-
-### Producción
-
-1. Construye la imagen de Docker:
-
-   ```bash
-   docker-compose build
-   ```
-
-2. Inicia el contenedor:
-
-   ```bash
-   docker-compose up
-   ```
-
----
-
-## Pruebas
-
-Ejecuta las pruebas utilizando:
+Este comando construirá las imágenes de Docker (si es la primera vez)
+y levantará todos los servicios (backend, postgres, redis):
 
 ```bash
-pnpm test
+docker-compose up --build
 ```
 
----
+La API estará disponible en <http://localhost:3000>.
+
+## Preparar la Base de Datos
+
+Una vez que los contenedores estén corriendo, abre una nueva terminal y
+ejecuta los siguientes comandos para preparar la base de datos.
+
+1. Aplicar migraciones para crear tablas
+
+```bash
+docker-compose exec backend pnpm prisma migrate dev
+```
+
+2. Poblar la base de datos con los datos iniciales (roles):
+
+```bash
+docker-compose exec backend pnpm prisma db seed
+```
