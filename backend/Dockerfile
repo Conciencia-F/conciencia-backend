@@ -1,35 +1,40 @@
-# === Builder (con devDependencies y build) ===
+# --- Builder ---
+# Esta etapa instala TODO y compila el código. La dejaremos con todas
 FROM node:20-alpine AS builder
 
+RUN npm install -g pnpm
 WORKDIR /app
 
-# 1. Copia definir deps y las instala
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm \
- && pnpm install
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# 2. Copia tu esquema y genera Prisma Client
-COPY prisma ./prisma
-RUN npx prisma generate
-
-# 3. Copia todo y compila tu TS a JS
 COPY . .
+RUN pnpm prisma generate
 RUN pnpm build
 
-# === Runner (solo prodDependencies + artefactos) ===
+# --- Fase 2: El Paquete Final para Producción (Runner) ---
+# Esta etapa es para producción. Será súper ligera.
 FROM node:20-alpine AS runner
 
+RUN npm install -g pnpm
 WORKDIR /app
 
-# 4. Instala solo deps de producción
-COPY package.json pnpm-lock.yaml* ./
-RUN npm install -g pnpm \
- && pnpm install --prod
+# Creamos el usuario no-root para producción.
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# 5. Copia Prisma Client ya generado y dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Aquí está la nueva lógica: copiamos la lista de dependencias
+# e instalamos SOLAMENTE las de producción.
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
+
+# Ahora, copiamos el código ya compilado desde la etapa 'builder'.
 COPY --from=builder /app/dist ./dist
+# También copiamos el cliente de Prisma generado.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# 6. Arranque directo del bundle
+RUN chown -R appuser:appgroup .
+USER appuser
+
+EXPOSE 3000
+
 CMD ["node", "dist/main.js"]
