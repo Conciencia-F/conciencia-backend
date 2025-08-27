@@ -1,7 +1,6 @@
 # ─── GLOBAL ----
 .DS_Store
 .env
-.env.*
 *.log
 
 # ─── PYTHON ----
