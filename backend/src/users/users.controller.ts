@@ -6,11 +6,11 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   UseGuards,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RoleName } from '@prisma/client';
 
 // Modulos Internos
@@ -25,13 +25,10 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(RoleName.ADMIN, RoleName.DIRECTOR)
+@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'No autorizado' })
+@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Acceso denegado' })
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
-  }
 
   @Get()
   @ApiOperation({ summary: 'Obtener una lista de todos los usuarios' })
@@ -39,13 +36,28 @@ export class UsersController {
     status: HttpStatus.OK,
     description: 'Lista de usuarios obtenida exitosamente',
   })
-  findAll() {
-    return this.usersService.findAll();
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Término para buscar usuarios por nombre, apellido o email.',
+  })
+  findAll(@Query('search') searchTerm?: string) {
+    return this.usersService.findAll(searchTerm);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener un usuario por su ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Usuario obtenido exitosamente',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'El usuario con el ID proporcionado no fue encontrado.',
+  })
   findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id/role')
@@ -67,10 +79,5 @@ export class UsersController {
     @Body() updateUserRoleDto: UpdateUserRoleDto,
   ) {
     return this.usersService.updateRole(id, updateUserRoleDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
   }
 }

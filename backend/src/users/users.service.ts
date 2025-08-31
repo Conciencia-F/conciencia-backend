@@ -2,21 +2,33 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 // Modulos Internos
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Prisma, RoleName } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
   constructor(private prisma: PrismaService) {}
 
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
-  }
+  /**
+   * Devuelve una lista de usuarios. Si se provee un término de búsqueda,
+   * filtra los resultados por nombre, apellido o email.
+   * @param searchTerm Término de búsqueda opcional.
+   */
+  async findAll(searchTerm?: string) {
+    const whereClause: Prisma.UserWhereInput = searchTerm
+      ? {
+          OR: [
+            { firstName: { contains: searchTerm, mode: 'insensitive' } },
+            { lastName: { contains: searchTerm, mode: 'insensitive' } },
+            { email: { contains: searchTerm, mode: 'insensitive' } },
+          ],
+        }
+      : {};
 
-  findAll() {
     return this.prisma.user.findMany({
+      where: whereClause,
       select: {
         id: true,
         email: true,
@@ -33,8 +45,29 @@ export class UsersService {
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isVerified: true,
+        createdAt: true,
+        role: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID "${id}" no encontrado`);
+    }
+
+    return user;
   }
 
   async updateRole(userId: string, updateUserRoleDto: UpdateUserRoleDto) {
@@ -68,7 +101,7 @@ export class UsersService {
     return result;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async findAllRoles(): Promise<RoleName[]> {
+    return Object.values(RoleName);
   }
 }
