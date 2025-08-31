@@ -25,54 +25,64 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(RoleName.ADMIN, RoleName.DIRECTOR)
-@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'No autorizado' })
-@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Acceso denegado' })
+@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Obtener una lista de todos los usuarios' })
+  @ApiOperation({ summary: 'Get a list of all users' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Lista de usuarios obtenida exitosamente',
+    description: 'List of users obtained successfully.',
   })
   @ApiQuery({
     name: 'search',
     required: false,
     type: String,
-    description: 'Término para buscar usuarios por nombre, apellido o email.',
+    description: 'Term to search users by first name, last name, or email.',
   })
   findAll(@Query('search') searchTerm?: string) {
     return this.usersService.findAll(searchTerm);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Obtener un usuario por su ID' })
+  @Get('roles')
+  @ApiOperation({ summary: 'Get all available roles' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Usuario obtenido exitosamente',
+    description: 'List of roles obtained successfully.',
+  })
+  findAllRoles() {
+    return this.usersService.findAllRoles();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a user by their ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User obtained successfully.',
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
-    description: 'El usuario con el ID proporcionado no fue encontrado.',
+    description: 'User with the provided ID was not found.',
   })
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id/role')
-  @ApiOperation({ summary: 'Actualizar el rol de un usuario específico' })
+  @ApiOperation({ summary: "Update a specific user's role" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'El rol del usuario ha sido actualizado exitosamente.',
+    description: "The user's role has been updated successfully.",
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
-    description: 'El usuario con el ID proporcionado no fue encontrado.',
+    description: 'User with the provided ID was not found.',
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
-    description: 'El rol proporcionado no es válido.',
+    description: 'The provided role is not valid.',
   })
   updateRole(
     @Param('id') id: string,

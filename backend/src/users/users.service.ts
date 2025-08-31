@@ -12,9 +12,9 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Devuelve una lista de usuarios. Si se provee un término de búsqueda,
-   * filtra los resultados por nombre, apellido o email.
-   * @param searchTerm Término de búsqueda opcional.
+   * Returns a list of users. If a search term is provided,
+   * it filters the results by first name, last name, or email.
+   * @param searchTerm Optional search term.
    */
   async findAll(searchTerm?: string) {
     const whereClause: Prisma.UserWhereInput = searchTerm
@@ -45,6 +45,12 @@ export class UsersService {
     });
   }
 
+  /**
+   * Finds a single user by their ID.
+   * @param id The user's ID.
+   * @returns The user found.
+   * @throws {NotFoundException} If the user with the given ID is not found.
+   */
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -70,6 +76,13 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Updates the role of a specific user.
+   * @param userId The ID of the user to update.
+   * @param updateUserRoleDto DTO containing the new role.
+   * @returns The updated user object without the password.
+   * @throws {NotFoundException} If the user with the given ID is not found.
+   */
   async updateRole(userId: string, updateUserRoleDto: UpdateUserRoleDto) {
     const { role } = updateUserRoleDto;
 
@@ -101,6 +114,10 @@ export class UsersService {
     return result;
   }
 
+  /**
+   * Returns a list of all available role names.
+   * @returns An array of RoleName enums.
+   */
   async findAllRoles(): Promise<RoleName[]> {
     return Object.values(RoleName);
   }
