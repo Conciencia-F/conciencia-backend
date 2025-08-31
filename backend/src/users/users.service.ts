@@ -6,6 +6,12 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, RoleName } from '@prisma/client';
 
+type AuthenticatedUser = {
+  userId: string;
+  email: string;
+  role: RoleName;
+};
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -70,7 +76,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario con ID "${id}" no encontrado`);
+      throw new NotFoundException(`User with ID "${id}" not found`);
     }
 
     return user;
@@ -83,7 +89,11 @@ export class UsersService {
    * @returns The updated user object without the password.
    * @throws {NotFoundException} If the user with the given ID is not found.
    */
-  async updateRole(userId: string, updateUserRoleDto: UpdateUserRoleDto) {
+  async updateRole(
+    userId: string,
+    updateUserRoleDto: UpdateUserRoleDto,
+    adminUser: AuthenticatedUser,
+  ) {
     const { role } = updateUserRoleDto;
 
     const user = await this.prisma.user.findUnique({
@@ -91,7 +101,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado`);
+      throw new NotFoundException(`User with ID "${userId}" not found`);
     }
 
     const updateUser = await this.prisma.user.update({
@@ -107,7 +117,7 @@ export class UsersService {
     });
 
     this.logger.log(
-      `El rol del usuario ${user.email} (ID: ${userId}) fue cambiado a ${role}.`,
+      `ADMIN: [${adminUser.email}] updated user ${user.email}'s role (ID: ${userId}) to ${role}.`,
     );
 
     const { password, ...result } = updateUser;

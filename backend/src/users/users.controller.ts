@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpStatus,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RoleName } from '@prisma/client';
@@ -20,6 +21,7 @@ import { Roles } from 'src/auth/decorators/roles.decorators';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { Request } from 'express';
 
 @ApiTags('Users')
 @Controller('users')
@@ -87,7 +89,9 @@ export class UsersController {
   updateRole(
     @Param('id') id: string,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
+    @Req() req: Request,
   ) {
-    return this.usersService.updateRole(id, updateUserRoleDto);
+    const userAdmin = req.user;
+    return this.usersService.updateRole(id, updateUserRoleDto, userAdmin);
   }
 }
