@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { RedisModule } from './shared/redis/redis.module';
     EmailModule,
     RedisModule,
     PrismaModule,
+    UsersModule,
   ],
   providers: [
     {

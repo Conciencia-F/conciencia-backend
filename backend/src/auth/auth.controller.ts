@@ -18,7 +18,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { TokenInfo } from './interfaces/token-info.interface';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Authentication')
