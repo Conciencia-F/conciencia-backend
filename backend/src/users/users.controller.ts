@@ -10,18 +10,22 @@ import {
   HttpStatus,
   Query,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RoleName } from '@prisma/client';
 
 // Modulos Internos
-import { UsersService } from './users.service';
+import { AuthenticatedUser, UsersService } from './users.service';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorators';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { Request } from 'express';
+
+type AuthRequest = Request & { user: AuthenticatedUser }
+
 
 @ApiTags('Users')
 @Controller('users')
@@ -30,7 +34,7 @@ import { Request } from 'express';
 @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
 @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get a list of all users' })
@@ -89,9 +93,14 @@ export class UsersController {
   updateRole(
     @Param('id') id: string,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
-    @Req() req: Request,
+    @Req() req: AuthRequest
   ) {
+    if (!req.user) {
+      throw new UnauthorizedException('asdfasd')
+    }
+
     const userAdmin = req.user;
+
     return this.usersService.updateRole(id, updateUserRoleDto, userAdmin);
   }
 }

@@ -6,16 +6,18 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, RoleName } from '@prisma/client';
 
-type AuthenticatedUser = {
+export type AuthenticatedUser = {
   userId: string;
   email: string;
   role: RoleName;
 };
 
+export type AuthRequest = Request & { user: AuthenticatedUser }
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Returns a list of users. If a search term is provided,
@@ -25,12 +27,12 @@ export class UsersService {
   async findAll(searchTerm?: string) {
     const whereClause: Prisma.UserWhereInput = searchTerm
       ? {
-          OR: [
-            { firstName: { contains: searchTerm, mode: 'insensitive' } },
-            { lastName: { contains: searchTerm, mode: 'insensitive' } },
-            { email: { contains: searchTerm, mode: 'insensitive' } },
-          ],
-        }
+        OR: [
+          { firstName: { contains: searchTerm, mode: 'insensitive' } },
+          { lastName: { contains: searchTerm, mode: 'insensitive' } },
+          { email: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      }
       : {};
 
     return this.prisma.user.findMany({
