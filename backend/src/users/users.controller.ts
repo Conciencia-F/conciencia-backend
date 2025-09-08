@@ -24,8 +24,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { Request } from 'express';
 
-type AuthRequest = Request & { user: AuthenticatedUser }
-
+type AuthRequest = Request & { user: AuthenticatedUser };
 
 @ApiTags('Users')
 @Controller('users')
@@ -34,7 +33,7 @@ type AuthRequest = Request & { user: AuthenticatedUser }
 @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
 @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden' })
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @ApiOperation({ summary: 'Get a list of all users' })
@@ -93,10 +92,12 @@ export class UsersController {
   updateRole(
     @Param('id') id: string,
     @Body() updateUserRoleDto: UpdateUserRoleDto,
-    @Req() req: AuthRequest
+    @Req() req: AuthRequest,
   ) {
     if (!req.user) {
-      throw new UnauthorizedException('asdfasd')
+      throw new UnauthorizedException(
+        'No esta autorizado para hacer esta acción',
+      );
     }
 
     const userAdmin = req.user;
