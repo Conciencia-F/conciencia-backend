@@ -10,6 +10,7 @@ import { EmailModule } from './email/email.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './shared/redis/redis.module';
 import { UsersModule } from './users/users.module';
+import { ArticlesModule } from './articles/articles.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     RedisModule,
     PrismaModule,
     UsersModule,
+    ArticlesModule,
   ],
   providers: [
     {

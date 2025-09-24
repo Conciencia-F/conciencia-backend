@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Gestion de Usuarios y Roles
+// ==================== Gestion de Usuarios y Roles ====================
 
 model User {
   id                String    @id @default(cuid())
@@ -25,11 +25,11 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  role              Role                @relation(fields: [roleId], references: [id])
-  articlesAuthored  AuthorsOnArticles[]
+  role              Role      @relation(fields: [roleId], references: [id])
   reviewsAssigned   Review[]
   tasksAssigned     ProductionTask[]
   refreshTokens     RefreshToken[]
+  articlesUploaded  Article[] 
 }
 
 model Role {
@@ -49,8 +49,7 @@ enum RoleName {
   DESIGNER
 }
 
-// Logica de Negocio
-// Gestion de Articulos y Revisores
+// ==================== Logica de Negocio ====================
 
 enum ArticleType {
   SCIENTIFIC_ARTICLE
@@ -65,28 +64,41 @@ model Article {
   themeId   String?
   journalId String?
 
+  tags      String? 
   type      ArticleType
 
   plagiarismScore      Int?
   aiContentPercentage  Int?
   plagiarismReportUrl  String?
 
-  authors   AuthorsOnArticles[]
-  versions  ArticleVersion[]
-  theme     Theme?              @relation(fields: [themeId], references: [id])
-  journal   Journal?            @relation(fields: [journalId], references: [id])
-  tasks     ProductionTask[]
+  userId   String
+  user     User            @relation(fields: [userId], references: [id])
+  authors  AuthorsOnArticles[]
+  versions ArticleVersion[]
+  theme    Theme?           @relation(fields: [themeId], references: [id])
+  journal  Journal?         @relation(fields: [journalId], references: [id])
+  tasks    ProductionTask[]
+  images   ArticleImage[] 
+  bibliographies Bibliography[]    // Nueva relación
 
   forFutureJournal Boolean @default(false)
+  isManuscrit      Boolean @default(false) // Se maneja con trigger
+}
+
+model ArticleImage {
+  id        String   @id @default(cuid())
+  articleId String
+  url       String
+  article   Article  @relation(fields: [articleId], references: [id])
 }
 
 model AuthorsOnArticles {
-  userId    String
-  articleId String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  @@id([userId, articleId])
+  id          String   @id @default(cuid())
+  articleId   String
+  name        String
+  email       String
+  affiliation String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
 }
 
 model ArticleVersion {
@@ -137,24 +149,33 @@ model Journal {
 }
 
 model Theme {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  isActive Boolean   @default(false)
+  id       String        @id @default(cuid())
+  category ThemeCategory @unique
+  isActive Boolean       @default(false)
   articles Article[]
 }
 
-model RefreshToken {
+// Nueva tabla para Bibliografías
+model Bibliography {
   id        String   @id @default(cuid())
+  reference String   // texto de la bibliografía
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
   hashedToken String   @unique
-  userId    String
-  revoked   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId      String
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Enums
+// ==================== Enums ====================
+
 enum ArticleStatus {
   PENDING_PRE_FILTERING
   ACCEPTED_FOR_PRELIMINARY_REVIEW
@@ -191,3 +212,21 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
 }
+
+enum ThemeCategory {
+  INVESTIGACION_CIENTIFICA_Y_TECNOLOGICA     
+  INNOVACION_Y_DESARROLLO_ID                 
+  EDUCACION_CIENTIFICA_Y_TECNOLOGICA        
+  CIENCIA_Y_SOCIEDAD                         
+  POLITICAS_PUBLICAS_EN_CIENCIA_Y_TECNOLOGIA
+  PRODUCCION_Y_DESARROLLO_LOCAL              
+  JUVENTUD_INVESTIGADORA                     
+  MUJERES_Y_DIVERSIDADES_EN_LA_CIENCIA      
+  PERSPECTIVA_FORMOSENA                      
+  RECENSIONES_Y_RESEÑA                        
+  DESARROLLO_DE_SOFTWARE                     
+  TELECOMUNICACIONES                           
+  MECATRONICA                                 
+  QUIMICA_INDUSTRIAL                          
+}
+
