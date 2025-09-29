@@ -112,17 +112,19 @@ export class CreateArticleDto {
 
   // ESTO CAMPOS NO SON VALIDACIONES REALES. SOLO SIRVEN PARA DOCUMENTACIÓN EN SWAGGER (document e images se validan en el controller)
   @ApiProperty({
-    type: 'string',
-    format: 'binary',
-    description: 'Archivo principal en formato .docx (obligatorio)',
+    description: 'FILE: Archivo principal en formato .docx (obligatorio). Se va a guardar en /public/documents',
+         example: [
+      "archivos de las imagenes"
+    ],
   })
   document: any;
 
   @ApiProperty({
-    type: 'string',
-    format: 'binary',
     isArray: true,
-    description: 'Imágenes asociadas al artículo (opcional, hasta 5)',
+    description: 'FILE: Imágenes asociadas al artículo (opcional, hasta 5 imagenes). Se van a guardar en /public/images',
+     example: [
+      "archivos de los documentos"
+    ],
   })
   images: any[];
 }
