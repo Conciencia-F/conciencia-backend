@@ -6,5 +6,9 @@ node_modules
 
 coverage
 
+# Ignorar docs e imagenes subidas al servidor
 /public/documents/
 /public/images/
+
+!public/images/.gitkeep
+!public/documents/.gitkeep
