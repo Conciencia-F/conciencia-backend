@@ -6,7 +6,5 @@ node_modules
 
 coverage
 
-backend/public/documents/*
-backend/public/images/*
-!backend/public/images/.gitkeep
-!backend/public/documents/.gitkeep
+/backend/public/documents/*
+/backend/public/images/*
