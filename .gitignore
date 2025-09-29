@@ -28,8 +28,6 @@ dist/
 backend/.env
 backend/node_modules
 backend/dist
-backend/public/images/*
-backend/public/documents/*
 
 # ─── DOCKER ---
 **/.container-volume
