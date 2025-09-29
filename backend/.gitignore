@@ -8,7 +8,7 @@ coverage
 
 # Ignorar docs e imagenes subidas al servidor
 /public/documents/
-/public/images/
+!/public/documents/.gitkeep
 
-!public/images/.gitkeep
-!public/documents/.gitkeep
+/public/images/
+!/public/images/.gitkeep
