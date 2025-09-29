@@ -19,7 +19,6 @@ import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels} from '@nestjs/swagg
 import { PaperDto } from './dto/scientist-paper.dto';
 import { BitacoraDto } from './dto/student-binnacle.dto';
 
-import * as fs from 'fs';
 @ApiTags('Artículos')
 @ApiExtraModels(PaperDto, BitacoraDto)
 @Controller('articles') 
