@@ -6,5 +6,5 @@ node_modules
 
 coverage
 
-/public/documents/*
-/public/images/*
+/public/documents/
+/public/images/
