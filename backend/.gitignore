@@ -5,3 +5,8 @@ node_modules
 /generated/prisma
 
 coverage
+
+backend/public/documents/*
+backend/public/images/*
+!backend/public/images/.gitkeep
+!backend/public/documents/.gitkeep
