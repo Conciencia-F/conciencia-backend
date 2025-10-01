@@ -15,15 +15,15 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels } from '@nestjs/swagger';
 import { PaperDto } from './dto/scientist-paper.dto';
 import { BitacoraDto } from './dto/student-binnacle.dto';
 
 @ApiTags('Artículos')
 @ApiExtraModels(PaperDto, BitacoraDto)
-@Controller('articles') 
+@Controller('articles')
 export class ArticlesController {
-  constructor(private readonly articlesService: ArticlesService) {}
+  constructor(private readonly articlesService: ArticlesService) { }
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -41,7 +41,7 @@ export class ArticlesController {
         storage: diskStorage({
           // Se define donde se guardarán las imágenes y documentos (según el campo)
           destination: (req, file, callback) => {
-          let uploadPath = 'public/';
+            let uploadPath = 'public/';
 
             if (file.fieldname === 'images') {
               uploadPath += 'images';
@@ -72,7 +72,7 @@ export class ArticlesController {
             }
           }
           if (file.fieldname === 'document') {
-            if (extname(file.originalname).toLowerCase() !== '.docx' && extname(file.originalname).toLowerCase() !== '.doc' ) {
+            if (extname(file.originalname).toLowerCase() !== '.docx' && extname(file.originalname).toLowerCase() !== '.doc') {
               return callback(
                 new Error('Solo se permite un archivo .docx'),
                 false,

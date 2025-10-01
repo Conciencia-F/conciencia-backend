@@ -34,7 +34,6 @@ export class UsersService {
         ],
       }
       : {};
-
     return this.prisma.user.findMany({
       where: whereClause,
       select: {
