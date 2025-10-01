@@ -82,6 +82,7 @@ model Article {
   bibliographies Bibliography[]    // Nueva relación
 
   forFutureJournal Boolean @default(false)
+  sendedAt   DateTime    @default(now())
   isManuscrit      Boolean @default(false) // Se maneja con trigger
 }
 

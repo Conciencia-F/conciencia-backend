@@ -60,7 +60,7 @@ Una vez que los contenedores estén corriendo, abre una nueva terminal y ejecuta
 docker-compose exec backend pnpm prisma migrate dev
 
 # 2. Poblar la base de datos con los datos iniciales (roles)
-docker-compose exec backend pnpm prisma db seed
+docker-compose exec backend pnpm prisma db seed+
 ```
 
 La API estará disponible en [http://localhost:3000](http://localhost:3000).
