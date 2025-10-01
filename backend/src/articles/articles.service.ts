@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ArticleType, ThemeCategory } from '@prisma/client';
@@ -130,5 +130,25 @@ export class ArticlesService {
         versions: true, // Incluye las versiones con el archivo docx
       },
     });
+  }
+
+  
+  async findOne(id: string) {
+    const article = await this.prisma.article.findUnique({
+      where: { id },
+      include: {
+        authors: true,
+        theme: true,
+        bibliographies: true,
+        images: true,
+        versions: true,
+      },
+    });
+
+    if (!article) {
+      throw new NotFoundException(`El artículo con ID ${id} no existe.`);
+    }
+
+    return article;
   }
 }

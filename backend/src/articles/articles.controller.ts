@@ -8,6 +8,7 @@ import {
   UploadedFiles,
   BadRequestException,
   Get,
+  Param,
 } from '@nestjs/common';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -103,5 +104,13 @@ export class ArticlesController {
   @ApiResponse({ status: 200, description: 'Lista de artículos.' })
   async findAll() {
     return this.articlesService.findAll();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener un artículo por ID' })
+  @ApiResponse({ status: 200, description: 'Artículo encontrado.' })
+  @ApiResponse({ status: 404, description: 'Artículo no encontrado.' })
+  async findOne(@Param('id') id: string) {
+    return this.articlesService.findOne(id);
   }
 }
