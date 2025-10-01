@@ -16,9 +16,12 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import * as fs from 'fs';
+import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels} from '@nestjs/swagger';
+import { PaperDto } from './dto/scientist-paper.dto';
+import { BitacoraDto } from './dto/student-binnacle.dto';
+
 @ApiTags('Artículos')
+@ApiExtraModels(PaperDto, BitacoraDto)
 @Controller('articles') 
 export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) {}
