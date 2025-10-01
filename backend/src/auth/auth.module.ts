@@ -19,7 +19,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     PrismaModule,
     EmailModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
         secret: cfg.get<string>('JWT_ACCESS_SECRET'),

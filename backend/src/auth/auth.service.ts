@@ -42,6 +42,7 @@ export class AuthService {
    */
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
+
     const allowedPublicRoles: RoleName[] = [
       RoleName.AUTHOR,
       RoleName.STUDENT,
@@ -139,32 +140,44 @@ export class AuthService {
         role: user.role.name,
       };
 
-      const [accessToken, refreshToken] = await Promise.all(
-        [this.jwtService.signAsync(payload, { expiresIn: 3600 }),
-        this.signAndStoreRefresh(user.id),
-        ])
+      const accessTtl = this.cfg.get<string>('JWT_ACCESS_TTL') || '1h';
+      const accessToken = await this.jwtService.signAsync(payload, {
+        expiresIn: accessTtl,
+        jwtid: crypto.randomUUID(),
+      });
+
+      const refreshToken = await this.signAndStoreRefresh(user.id);
+      const accessTokenExpiration =
+        typeof accessTtl === 'string'
+          ? 3600
+          : Number(accessTtl);
+      const refreshTtl = this.cfg.get<string>('JWT_REFRESH_TTL') || '7d';
+      const refreshTokenExpiration = typeof refreshTtl === 'string' ? 7 * 24 * 3600 : Number(refreshTtl);
 
       return {
-        accessToken: { token: accessToken, expiresIn: 3600 },
-        refreshToken: { token: refreshToken, expiresIn: 604800 },
+        accessToken: {
+          token: accessToken,
+          expiresIn: accessTokenExpiration,
+        },
+        refreshToken: {
+          token: refreshToken,
+          expiresIn: refreshTokenExpiration,
+        },
         user: {
           id: user.id,
+          email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          email: user.email,
           role: user.role.name
         },
       };
-    } catch (e) {
-      this.logger.error('Error en el proceso de login:', e.stack);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
 
-      if (e instanceof UnauthorizedException) {
-        throw e;
-      }
+      this.logger.error(`[login_error] ${msg}`, undefined, 'AuthService');
 
-      throw new UnauthorizedException(
-        'Ocurrió un error inesperado durante el inicio de sesión.',
-      );
+      if (e instanceof UnauthorizedException) throw e;
+      throw new UnauthorizedException('Ocurrió un error inesperado durante el inicio de sesión.');
     }
   }
 
@@ -339,12 +352,14 @@ export class AuthService {
 
       await this.prismaService.user.update({
         where: { id: user.id },
+
         data: {
           password: hashedPassword,
           resetToken: null,
           resetTokenExpiry: null,
         },
       });
+
 
       return 'Contraseña actualizada correctamente';
     } catch (e) {

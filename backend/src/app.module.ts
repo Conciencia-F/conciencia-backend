@@ -37,4 +37,4 @@ import { ArticlesModule } from './articles/articles.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
