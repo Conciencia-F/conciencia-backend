@@ -73,6 +73,7 @@ export class ArticlesService {
     const authorsData = createArticleDto.authors.map((author) => ({
       articleId: article.id,
       name: author.name,
+      surname: author.surname,
       email: author.email,
       affiliation: author.affiliation,
     }));

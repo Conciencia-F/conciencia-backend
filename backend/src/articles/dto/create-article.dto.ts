@@ -36,12 +36,14 @@ export class CreateArticleDto {
     description: 'Lista de autores',
     example: [
       {
-        name: 'Juan Pérez',
+        name: 'Juan',
+        surname: 'Pérez',
         email: 'juan.perez@example.com',
         affiliation: 'Universidad Nacional de Formosa',
       },
       {
-        name: 'María Gómez',
+        name: 'María',
+        surname: 'Gómez',
         email: 'maria.gomez@example.com',
         affiliation: 'Instituto de Tecnología Avanzada',
       },
