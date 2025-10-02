@@ -2,25 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ThrottlerExceptionFilter } from './shared/filters/throttler-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ConsoleLogger, LogLevel, ValidationPipe } from '@nestjs/common';
-
-
-function levelsFromEnv(): LogLevel[] {
-  const all: LogLevel[] = ['fatal', 'error', 'warn', 'log', 'debug', 'verbose'];
-  const target = (process.env.LOG_LEVEL as LogLevel) ?? 'log';
-  const idx = Math.max(0, all.indexOf(target));
-  return all.slice(0, idx + 1);
-}
+import { ValidationPipe } from '@nestjs/common';
+import { AllExceptionsFilter } from './shared/filters/allExceptionFilter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-    logger: new ConsoleLogger({
-      timestamp: true,
-      logLevels: levelsFromEnv(),
-    }),
-  });
-
+  const app = await NestFactory.create(AppModule);
   app.enableCors({
     origin: [`http://127.0.0.1:${process.env.CLIENT_PORT}`],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -40,6 +26,9 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   app.useGlobalFilters(new ThrottlerExceptionFilter());
+  app.useLogger(['error', 'warn', 'log']);
+  app.useGlobalFilters(new AllExceptionsFilter());
+
 
   await app.listen(process.env.PORT ?? 3000);
 }

@@ -6,6 +6,7 @@ import { RoleName } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -23,17 +24,22 @@ import { RegisterDto } from './dtos/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { ConfigService } from '@nestjs/config';
+import { UsersDataService } from 'src/users/infra/users-data.services';
+import { ALLOWED_ROLES, HASHER, Mailer, MAILER, PasswordHasher, TOKENS, USER_REPO, UserRepository, VerificationTokens } from './interfaces/ports';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly jwtService: JwtService,
     private readonly cfg: ConfigService,
     private readonly prismaService: PrismaService,
     private readonly redisService: RedisService,
-    private readonly emailService: EmailService,
+    private readonly logger: Logger,
+    @Inject(USER_REPO) private readonly user: UserRepository,
+    @Inject(HASHER) private readonly hasher: PasswordHasher,
+    @Inject(TOKENS) private readonly tokens: VerificationTokens,
+    @Inject(MAILER) private readonly mailer: Mailer,
+    @Inject(ALLOWED_ROLES) private readonly allowed: ReadonlySet<RoleName>,
   ) { }
 
   /**
@@ -43,63 +49,25 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
 
-    const allowedPublicRoles: RoleName[] = [
-      RoleName.AUTHOR,
-      RoleName.STUDENT,
-      RoleName.INVESTIGATOR,
-    ];
-
-    if (!allowedPublicRoles.includes(role)) {
+    if (!this.allowed.has(role)) {
       throw new BadRequestException('El rol seleccionado no es válido');
     }
 
-    try {
-      const userExists = await this.prismaService.user.findUnique({
-        where: { email },
-      });
-
-      if (userExists) {
-        throw new ConflictException('El correo se encuentra en uso.');
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const user = await this.prismaService.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          firstName,
-          lastName,
-          role: {
-            connect: { name: role },
-          },
-          isVerified: true,
-        },
-      });
-
-      const verifyToken = this.jwtService.sign(
-        { sub: user.id },
-        { expiresIn: '15m' },
-      );
-
-      await this.emailService.sendVerificationEmail(user.email, verifyToken);
-
-      return {
-        message:
-          'Usuario registrado correctamente. Se envió un correo de activación.',
-        userId: user.id,
-      };
-    } catch (e) {
-      this.logger.error('Error durante el registro:', e.stack);
-
-      if (e instanceof ConflictException || e instanceof BadRequestException) {
-        throw e;
-      }
-
-      throw new BadRequestException(
-        'Ocurrió un error inesperado durante el registro.',
-      );
+    if (await this.user.findByEmail(email)) {
+      throw new ConflictException('El correo se encuentra en uso.');
     }
+
+    const hashed = await this.hasher.hash(password);
+    const user = await this.user.create({ email, password: hashed, firstName, lastName, role });
+    const token = this.tokens.issue(user.id, 15 * 60);
+
+    this.mailer.sendVerificationEmail(user.email, token)
+      .catch(err => this.logger.warn(`verify email failed: ${err?.message ?? err}`));
+
+    return {
+      message: 'Usuario registrado correctamente. Se envió un correo de activación.',
+      userId: user.id
+    };
   }
 
   async login(
@@ -107,39 +75,22 @@ export class AuthService {
   ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo; user: any }> {
     try {
       const { email, password } = dto;
-
-      const user = await this.prismaService.user.findUnique({
-        where: { email },
-        include: {
-          role: true,
-        },
-      });
+      const user = await this.user.findByEmail(email);
 
       if (!user) {
-        throw new UnauthorizedException(
-          'Credenciales inválidas. Intente nuevamente.',
-        );
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
       if (!user.isVerified) {
-        throw new UnauthorizedException(
-          'Tu cuenta no está activada. Verifica tu correo para activar tu cuenta.',
-        );
+        throw new UnauthorizedException('Cuenta no activada.');
       }
 
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        throw new UnauthorizedException(
-          'Credenciales inválidas. Intente nuevamente.',
-        );
+      const isPassword = await bcrypt.compare(password, user.password);
+      if (!isPassword) {
+        throw new UnauthorizedException('Credenciales inválidas.');
       }
 
-      const payload: JwtPayload = {
-        sub: user.id,
-        email: user.email,
-        role: user.role.name,
-      };
-
+      const payload: JwtPayload = { sub: user.id, email: user.email, role: user.roleId };
       const accessTtl = this.cfg.get<string>('JWT_ACCESS_TTL') || '1h';
       const accessToken = await this.jwtService.signAsync(payload, {
         expiresIn: accessTtl,
@@ -147,37 +98,22 @@ export class AuthService {
       });
 
       const refreshToken = await this.signAndStoreRefresh(user.id);
-      const accessTokenExpiration =
-        typeof accessTtl === 'string'
-          ? 3600
-          : Number(accessTtl);
+
+      const accessExpSec = typeof accessTtl === 'string' ? 3600 : Number(accessTtl);
       const refreshTtl = this.cfg.get<string>('JWT_REFRESH_TTL') || '7d';
-      const refreshTokenExpiration = typeof refreshTtl === 'string' ? 7 * 24 * 3600 : Number(refreshTtl);
+      const refreshExpSec = typeof refreshTtl === 'string' ? 7 * 24 * 3600 : Number(refreshTtl);
 
       return {
-        accessToken: {
-          token: accessToken,
-          expiresIn: accessTokenExpiration,
-        },
-        refreshToken: {
-          token: refreshToken,
-          expiresIn: refreshTokenExpiration,
-        },
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role.name
-        },
+        accessToken: { token: accessToken, expiresIn: accessExpSec },
+        refreshToken: { token: refreshToken, expiresIn: refreshExpSec },
+        user: { id: user.id, email: user.email, role: user.roleId },
       };
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-
-      this.logger.error(`[login_error] ${msg}`, undefined, 'AuthService');
+    } catch (e) {
+      this.logger.error('Error en login:', e.stack);
 
       if (e instanceof UnauthorizedException) throw e;
-      throw new UnauthorizedException('Ocurrió un error inesperado durante el inicio de sesión.');
+
+      throw new UnauthorizedException('Error en inicio de sesión.');
     }
   }
 
