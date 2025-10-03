@@ -24,7 +24,7 @@ async function main() {
     lastName: string;
     password?: string;
   }> = [
-      { email: 'admin@admin.com', role: RoleName.DIRECTOR, firstName: 'Ad', lastName: 'Min' },
+      { email: 'admin@admin.com', role: RoleName.ADMIN, firstName: 'Ad', lastName: 'Min' },
       { email: 'admin@director.com', role: RoleName.DIRECTOR, firstName: 'Dir', lastName: 'Ector' },
       { email: 'admin@reviewer.com', role: RoleName.REVIEWER, firstName: 'Re', lastName: 'Viewer' },
       { email: 'admin@stylistic.com', role: RoleName.STYLISTIC_EDITOR, firstName: 'Stylistic', lastName: 'Editor' },
