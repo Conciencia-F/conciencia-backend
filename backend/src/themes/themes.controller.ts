@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param } from '@nestjs/common';
 import { ThemesService } from './themes.service';
 
 @Controller('themes')
@@ -10,13 +10,13 @@ export class ThemesController {
     return this.themesService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.themesService.findOne(+id);
+  @Get('active')
+  findActive() {
+    return this.themesService.findActive();
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateThemeDto: any) {
-    return this.themesService.update(+id, updateThemeDto);
+  @Patch('activate/:category')
+  activateByCategory(@Param('category') category: string) {
+    return this.themesService.activateByCategory(category);
   }
 }
