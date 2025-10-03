@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -20,6 +21,7 @@ import { RegisterDto } from './dtos/register.dto';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
+import { RefreshDto } from './dtos/refresh.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -27,7 +29,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly emailService: EmailService,
-  ) {}
+  ) { }
 
   @Post('register')
   // Documentación Swagger
@@ -76,9 +78,8 @@ export class AuthController {
     return { message: 'Sesión cerrada correctamente' };
   }
 
-  @Post('refresh')
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshAccessToken(refreshToken);
+  refresh(@Body() dto: RefreshDto) {
+    return this.authService.refreshAccessToken(dto.refreshToken);
   }
 
   @Get('verify-email/:token')

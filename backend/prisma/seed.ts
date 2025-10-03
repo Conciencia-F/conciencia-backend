@@ -17,25 +17,39 @@ async function main() {
     console.log(`Role '${roleName}' created or already exists.`);
   }
 
-  // CREACIÓN DE ADMIN
-  const adminEmail = 'admin@admin.com';
-  const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
+  const usersToSeed: Array<{
+    email: string;
+    role: RoleName;
+    firstName: string;
+    lastName: string;
+    password?: string;
+  }> = [
+      { email: 'admin@admin.com', role: RoleName.DIRECTOR, firstName: 'Ad', lastName: 'Min' },
+      { email: 'admin@director.com', role: RoleName.DIRECTOR, firstName: 'Dir', lastName: 'Ector' },
+      { email: 'admin@reviewer.com', role: RoleName.REVIEWER, firstName: 'Re', lastName: 'Viewer' },
+      { email: 'admin@stylistic.com', role: RoleName.STYLISTIC_EDITOR, firstName: 'Stylistic', lastName: 'Editor' },
+      { email: 'admin@designer.com', role: RoleName.DESIGNER, firstName: 'De', lastName: 'Signer' },
+    ];
 
-  if (!adminUser) {
-    const hashedPassword = await bcrypt.hash('Admin123', 10);
+  for (const u of usersToSeed) {
+    const exists = await prisma.user.findUnique({ where: { email: u.email } });
+    if (exists) {
+      console.log(`User '${u.email}' already exists.`);
+      continue;
+    }
+
+    const hashed = await bcrypt.hash(u.password ?? 'Admin123', 10);
     await prisma.user.create({
       data: {
-        email: adminEmail,
-        password: hashedPassword,
-        firstName: 'Admin',
-        lastName: 'Admin',
-        role: { connect: { name: 'ADMIN' } },
+        email: u.email,
+        password: hashed,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        role: { connect: { name: u.role } },
         isVerified: true,
       },
     });
-    console.log(`Created admin user: ${adminEmail}`);
-  } else {
-    console.log(`Admin user '${adminEmail}' already exists.`);
+    console.log(`Created ${u.role} user: ${u.email}`);
   }
 
   // CREACIÓN DE THEMES

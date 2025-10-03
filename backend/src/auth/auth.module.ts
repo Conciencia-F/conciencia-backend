@@ -2,6 +2,7 @@
 import { Logger, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 // Módulos Internos de la Aplicacion
 import { EmailModule } from 'src/email/email.module';
@@ -17,13 +18,17 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     RedisModule,
     PrismaModule,
     EmailModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET as string,
-      signOptions: { expiresIn: '1h' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) => ({
+        secret: cfg.get<string>('JWT_ACCESS_SECRET'),
+        signOptions: { expiresIn: cfg.get<string>('JWT_ACCESS_TTL') }
+      }),
     }),
   ],
   providers: [AuthService, Logger, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }
