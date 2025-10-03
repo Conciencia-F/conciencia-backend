@@ -82,6 +82,7 @@ model Article {
   bibliographies Bibliography[]    // Nueva relación
 
   forFutureJournal Boolean @default(false)
+  sendedAt   DateTime    @default(now())
   isManuscrit      Boolean @default(false) // Se maneja con trigger
 }
 
@@ -96,6 +97,7 @@ model AuthorsOnArticles {
   id          String   @id @default(cuid())
   articleId   String
   name        String
+  surname     String
   email       String
   affiliation String
   article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "public"."Article" ADD COLUMN     "sendedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

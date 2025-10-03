@@ -3,12 +3,20 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export class AuthorDto {
     @ApiProperty({
-        example: "Nahuel Sánchez",
+        example: "Nahuel",
         description: "Nombre completo del autor del paper",
     })
     @IsString()
     @IsNotEmpty({ message: "El nombre del autor es obligatorio" })
     name: string;
+
+    @ApiProperty({
+        example: "Sánchez",
+        description: "Apellido completo del autor del paper",
+    })
+    @IsString()
+    @IsNotEmpty({ message: "El apellido del autor es obligatorio" })
+    surname: string;
 
     @ApiProperty({
         example: "nahuel@example.com",
