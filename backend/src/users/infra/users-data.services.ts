@@ -1,10 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma, RoleName, User } from '@prisma/client';
 import { UserRepository } from 'src/auth/interfaces/ports';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 type Tx = Prisma.TransactionClient
 type Db = PrismaService | Tx
+type UserWithRole = Prisma.UserGetPayload<{ include: { role: true } }>;
 
 @Injectable()
 export class UsersDataService implements UserRepository {
@@ -49,11 +50,15 @@ export class UsersDataService implements UserRepository {
    *
    *
    */
-  findByEmail(email: string, db?: Db) {
-    return this.orm(db).user.findUnique({
-      where: { email },
-      include: { role: true }
-    })
+  async findByEmail(email: string, db?: Db): Promise<UserWithRole> {
+    try {
+      return await this.orm(db).user.findUniqueOrThrow({
+        where: { email },
+        include: { role: true },
+      });
+    } catch (e) {
+      throw new Error('USER_NOT_FOUND');
+    }
   }
 
   /**
