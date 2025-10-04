@@ -68,7 +68,7 @@ export class ArticlesController {
           if (file.fieldname === 'images') {
             if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
               return callback(
-                new Error('Solo se permiten imágenes JPG/PNG'),
+                new BadRequestException('Solo se permiten imágenes JPG/PNG'),
                 false,
               );
             }
@@ -76,7 +76,7 @@ export class ArticlesController {
           if (file.fieldname === 'document') {
             if (extname(file.originalname).toLowerCase() !== '.docx' && extname(file.originalname).toLowerCase() !== '.doc' ) {
               return callback(
-                new Error('Solo se permite un archivo .docx'),
+                new BadRequestException('Solo se permite un archivo .docx'),
                 false,
               );
             }
