@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -19,9 +18,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { TokenInfo } from './interfaces/token-info.interface';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
-import { RefreshDto } from './dtos/refresh.dto';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -69,7 +67,7 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards()
   @Post('logout')
   async logout(@Req() req: Request) {
     const authHeader = req.headers.authorization!;
@@ -78,8 +76,11 @@ export class AuthController {
     return { message: 'Sesión cerrada correctamente' };
   }
 
-  refresh(@Body() dto: RefreshDto) {
-    return this.authService.refreshAccessToken(dto.refreshToken);
+  @UseGuards(JwtRefreshGuard)
+  @Post('refresh')
+  async refresh(@Req() req: Request) {
+    const raw = req.get('x-refresh-token') ?? req.get('authorization')?.slice(7) ?? '';
+    return this.authService.refreshAccessToken(raw);
   }
 
   @Get('verify-email/:token')

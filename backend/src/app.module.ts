@@ -39,11 +39,6 @@ import { ThemesModule } from './themes/themes.module';
     ArticlesModule,
     ThemesModule,
   ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-  ],
+  providers: [],
 })
-export class AppModule {}
+export class AppModule { }

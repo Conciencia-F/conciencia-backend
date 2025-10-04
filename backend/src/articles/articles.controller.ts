@@ -15,10 +15,10 @@ import { extname } from 'path';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels } from '@nestjs/swagger';
 import { PaperDto } from './dto/scientist-paper.dto';
 import { BitacoraDto } from './dto/student-binnacle.dto';
+import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 
 @ApiTags('Artículos')
 @ApiExtraModels(PaperDto, BitacoraDto)
@@ -26,7 +26,7 @@ import { BitacoraDto } from './dto/student-binnacle.dto';
 export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) { }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAccessGuard)
   @Post()
   @ApiOperation({ summary: 'Crear un nuevo artículo' })
   @ApiResponse({ status: 201, description: 'Artículo creado exitosamente.' })
