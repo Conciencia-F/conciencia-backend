@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ThemeCategory, Prisma } from '@prisma/client';
 
@@ -18,11 +18,18 @@ export class ThemesService {
 
 
     async activateByCategory(category: string) {
+
+    if (!Object.values(ThemeCategory).includes(category as ThemeCategory)) {
+      throw new BadRequestException(`La categoría '${category}' no es válida`);
+    }
+
     const theme = await this.prisma.theme.findFirst({
       where: { category: category as ThemeCategory },
     });
 
-    if (!theme) throw new Error("No se encontró un theme con esa categoría");
+    if (!theme) {
+      throw new NotFoundException(`No se encontró un theme con la categoría: ${category}`)
+    };
 
     await this.prisma.theme.updateMany({
       data: { isActive: false },

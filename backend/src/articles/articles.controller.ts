@@ -16,7 +16,7 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels, ApiBearerAuth} from '@nestjs/swagger';
 import { PaperDto } from './dto/scientist-paper.dto';
 import { BitacoraDto } from './dto/student-binnacle.dto';
 
@@ -26,6 +26,7 @@ import { BitacoraDto } from './dto/student-binnacle.dto';
 export class ArticlesController {
   constructor(private readonly articlesService: ArticlesService) {}
 
+  @ApiBearerAuth()   
   @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Crear un nuevo artículo' })
