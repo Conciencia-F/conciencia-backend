@@ -1,3 +1,4 @@
+// Modulos Externos
 import {
   Controller,
   Post,
@@ -11,11 +12,19 @@ import {
   Param,
 } from '@nestjs/common';
 import { diskStorage } from 'multer';
+import { Request } from 'express';
+
+// Modulos Internos
 import { extname } from 'path';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiExtraModels } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiExtraModels,
+} from '@nestjs/swagger';
 import { PaperDto } from './dto/scientist-paper.dto';
 import { BitacoraDto } from './dto/student-binnacle.dto';
 import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
@@ -24,7 +33,7 @@ import { JwtAccessGuard } from 'src/auth/guards/jwt-access.guard';
 @ApiExtraModels(PaperDto, BitacoraDto)
 @Controller('articles')
 export class ArticlesController {
-  constructor(private readonly articlesService: ArticlesService) { }
+  constructor(private readonly articlesService: ArticlesService) {}
 
   @UseGuards(JwtAccessGuard)
   @Post()
@@ -73,7 +82,10 @@ export class ArticlesController {
             }
           }
           if (file.fieldname === 'document') {
-            if (extname(file.originalname).toLowerCase() !== '.docx' && extname(file.originalname).toLowerCase() !== '.doc') {
+            if (
+              extname(file.originalname).toLowerCase() !== '.docx' &&
+              extname(file.originalname).toLowerCase() !== '.doc'
+            ) {
               return callback(
                 new Error('Solo se permite un archivo .docx'),
                 false,
@@ -92,13 +104,20 @@ export class ArticlesController {
       images?: Express.Multer.File[];
       document?: Express.Multer.File[];
     },
-    @Req() req,
+    @Req() req: Request,
   ) {
     if (!files.document || files.document.length === 0) {
       throw new BadRequestException('El archivo .docx es obligatorio');
     }
 
-    const userId = req.user.userId;
+    const userId = (req.user as { sub: string }).sub;
+
+    if (!userId) {
+      throw new BadRequestException(
+        'No se pudo obtener el id de usuario desde el token JWT',
+      );
+    }
+
     return this.articlesService.create(createArticleDto, userId, files);
   }
 

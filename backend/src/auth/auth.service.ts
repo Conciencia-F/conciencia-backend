@@ -30,7 +30,9 @@ const remainingSecs = (jwt: string, jwtService: JwtService) => {
   if (!decoded?.exp) return 0;
   return Math.max(0, decoded.exp - nowSec());
 };
-const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+
+const sha256 = (s: string) =>
+  crypto.createHash('sha256').update(s).digest('hex');
 
 @Injectable()
 export class AuthService {
@@ -42,7 +44,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   /**
    * Registro de usuario.
@@ -76,7 +78,10 @@ export class AuthService {
         },
       });
 
-      const verifyToken = this.jwtService.sign({ sub: user.id }, { expiresIn: '15m' });
+      const verifyToken = this.jwtService.sign(
+        { sub: user.id },
+        { expiresIn: '15m' },
+      );
       await this.emailService.sendVerificationEmail(user.email, verifyToken);
 
       return {
@@ -86,8 +91,11 @@ export class AuthService {
       };
     } catch (e) {
       this.logger.error('Error durante el registro:', e.stack);
-      if (e instanceof ConflictException || e instanceof BadRequestException) throw e;
-      throw new BadRequestException('Ocurrió un error inesperado durante el registro.');
+      if (e instanceof ConflictException || e instanceof BadRequestException)
+        throw e;
+      throw new BadRequestException(
+        'Ocurrió un error inesperado durante el registro.',
+      );
     }
   }
 
@@ -96,7 +104,9 @@ export class AuthService {
    * Access: HS256 con JWT_ACCESS_SECRET, TTL = JWT_ACCESS_TTL ("3600" | "1h").
    * Refresh: HS256 con JWT_REFRESH_SECRET, TTL = JWT_REFRESH_TTL ("604800" | "7d"), guardado hasheado en DB y con jti.
    */
-  async login(dto: LoginDto): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo; user: any }> {
+  async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo; user: any }> {
     try {
       const { email, password } = dto;
 
@@ -104,11 +114,20 @@ export class AuthService {
         where: { email },
         include: { role: true },
       });
-      if (!user) throw new UnauthorizedException('Credenciales inválidas. Intente nuevamente.');
-      if (!user.isVerified) throw new UnauthorizedException('Tu cuenta no está activada. Verifica tu correo.');
+      if (!user)
+        throw new UnauthorizedException(
+          'Credenciales inválidas. Intente nuevamente.',
+        );
+      if (!user.isVerified)
+        throw new UnauthorizedException(
+          'Tu cuenta no está activada. Verifica tu correo.',
+        );
 
       const ok = await bcrypt.compare(password, user.password);
-      if (!ok) throw new UnauthorizedException('Credenciales inválidas. Intente nuevamente.');
+      if (!ok)
+        throw new UnauthorizedException(
+          'Credenciales inválidas. Intente nuevamente.',
+        );
 
       const accessPayload: JwtPayload = {
         sub: user.id,
@@ -118,7 +137,7 @@ export class AuthService {
         jti: crypto.randomUUID(),
       };
 
-      const accessTtl = this.cfg.getOrThrow<string>('JWT_ACCESS_TTL');   // "3600" o "1h"
+      const accessTtl = this.cfg.getOrThrow<string>('JWT_ACCESS_TTL'); // "3600" o "1h"
       const refreshTtl = this.cfg.getOrThrow<string>('JWT_REFRESH_TTL'); // "604800" o "7d"
 
       const accessToken = await this.jwtService.signAsync(accessPayload, {
@@ -130,8 +149,14 @@ export class AuthService {
       const refreshToken = await this.signAndStoreRefresh(user.id, refreshTtl);
 
       return {
-        accessToken: { token: accessToken, expiresIn: remainingSecs(accessToken, this.jwtService) },
-        refreshToken: { token: refreshToken, expiresIn: remainingSecs(refreshToken, this.jwtService) },
+        accessToken: {
+          token: accessToken,
+          expiresIn: remainingSecs(accessToken, this.jwtService),
+        },
+        refreshToken: {
+          token: refreshToken,
+          expiresIn: remainingSecs(refreshToken, this.jwtService),
+        },
         user: {
           id: user.id,
           firstName: user.firstName,
@@ -143,7 +168,9 @@ export class AuthService {
     } catch (e) {
       this.logger.error('Error en el proceso de login:', e.stack);
       if (e instanceof UnauthorizedException) throw e;
-      throw new UnauthorizedException('Ocurrió un error inesperado durante el inicio de sesión.');
+      throw new UnauthorizedException(
+        'Ocurrió un error inesperado durante el inicio de sesión.',
+      );
     }
   }
 
@@ -181,25 +208,40 @@ export class AuthService {
    * Rotación de refresh: valida firma, estado en DB, consume el actual y emite nuevo par.
    * El refresh se espera por header (p. ej. X-Refresh-Token) desde el controlador.
    */
-  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo }> {
+  async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo }> {
     const { sub, jti, token_type } = await this.jwtService.verifyAsync<{
-      sub: string; jti: string; token_type: 'refresh';
+      sub: string;
+      jti: string;
+      token_type: 'refresh';
     }>(refreshToken, {
       secret: this.cfg.getOrThrow<string>('JWT_REFRESH_SECRET'),
       algorithms: ['HS256'],
     });
 
-    if (token_type !== 'refresh') throw new UnauthorizedException('Refresh inválido');
+    if (token_type !== 'refresh')
+      throw new UnauthorizedException('Refresh inválido');
 
-    const rec = await this.prisma.refreshToken.findUnique({ where: { id: jti } });
-    if (!rec || rec.revoked || rec.userId !== sub || rec.expiresAt < new Date()) {
+    const rec = await this.prisma.refreshToken.findUnique({
+      where: { id: jti },
+    });
+    if (
+      !rec ||
+      rec.revoked ||
+      rec.userId !== sub ||
+      rec.expiresAt < new Date()
+    ) {
       throw new UnauthorizedException('Refresh inválido');
     }
     const ok = await bcrypt.compare(refreshToken, rec.hashedToken);
     if (!ok) throw new UnauthorizedException('Refresh inválido');
 
     return this.prisma.$transaction(async (tx) => {
-      await tx.refreshToken.update({ where: { id: jti }, data: { revoked: true } });
+      await tx.refreshToken.update({
+        where: { id: jti },
+        data: { revoked: true },
+      });
 
       const accessPayload: JwtPayload = {
         sub,
@@ -217,8 +259,14 @@ export class AuthService {
       const newRefresh = await this.signAndStoreRefresh(sub);
 
       return {
-        accessToken: { token: newAccess, expiresIn: remainingSecs(newAccess, this.jwtService) },
-        refreshToken: { token: newRefresh, expiresIn: remainingSecs(newRefresh, this.jwtService) },
+        accessToken: {
+          token: newAccess,
+          expiresIn: remainingSecs(newAccess, this.jwtService),
+        },
+        refreshToken: {
+          token: newRefresh,
+          expiresIn: remainingSecs(newRefresh, this.jwtService),
+        },
       };
     });
   }
@@ -228,7 +276,9 @@ export class AuthService {
    */
   async logout(accessToken: string, refreshToken?: string) {
     try {
-      const decoded = this.jwtService.decode(accessToken) as Partial<JwtPayload> | null;
+      const decoded = this.jwtService.decode(
+        accessToken,
+      ) as Partial<JwtPayload> | null;
       const exp = decoded?.exp ?? nowSec();
       const ttl = Math.max(1, exp - nowSec());
 
@@ -243,10 +293,12 @@ export class AuthService {
 
     if (refreshToken) {
       try {
-        const { jti, sub } = await this.jwtService.verifyAsync<{ jti: string; sub: string }>(
-          refreshToken,
-          { secret: this.cfg.getOrThrow<string>('JWT_REFRESH_SECRET') },
-        );
+        const { jti, sub } = await this.jwtService.verifyAsync<{
+          jti: string;
+          sub: string;
+        }>(refreshToken, {
+          secret: this.cfg.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        });
         await this.prisma.refreshToken.updateMany({
           where: { id: jti, userId: sub, revoked: false },
           data: { revoked: true },
@@ -268,7 +320,9 @@ export class AuthService {
       throw new BadRequestException('Token inválido o expirado');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+    });
     if (!user) throw new NotFoundException('Usuario no encontrado');
 
     if (user.isVerified) return 'Tu cuenta ya estaba verificada.';
@@ -300,7 +354,10 @@ export class AuthService {
       this.logger.log(`Token de restablecimiento generado para: ${email}`);
       return resetToken;
     } catch (e) {
-      this.logger.error('Error al generar el token de restablecimiento', e.stack);
+      this.logger.error(
+        'Error al generar el token de restablecimiento',
+        e.stack,
+      );
       throw new BadRequestException('Token invalidado o expirado');
     }
   }
@@ -319,7 +376,11 @@ export class AuthService {
 
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { password: hashedPassword, resetToken: null, resetTokenExpiry: null },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
       });
 
       return 'Contraseña actualizada correctamente';

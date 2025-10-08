@@ -12,8 +12,14 @@ import * as bcrypt from 'bcrypt';
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(private cfg: ConfigService, private prisma: PrismaService) {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
+  constructor(
+    private cfg: ConfigService,
+    private prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: (req: Request) => extractRefresh(req),
       secretOrKey: cfg.getOrThrow<string>('JWT_REFRESH_SECRET'),
@@ -28,8 +34,15 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     const raw = extractRefresh(req);
     if (!raw) throw new UnauthorizedException();
 
-    const rec = await this.prisma.refreshToken.findUnique({ where: { id: payload.jti } });
-    if (!rec || rec.revoked || rec.userId !== payload.sub || rec.expiresAt < new Date()) {
+    const rec = await this.prisma.refreshToken.findUnique({
+      where: { id: payload.jti },
+    });
+    if (
+      !rec ||
+      rec.revoked ||
+      rec.userId !== payload.sub ||
+      rec.expiresAt < new Date()
+    ) {
       throw new UnauthorizedException();
     }
 
@@ -39,8 +52,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     return {
       sub: payload.sub,
       jti: payload.jti,
-      token_type: 'refresh'
+      token_type: 'refresh',
     };
   }
 }
-
