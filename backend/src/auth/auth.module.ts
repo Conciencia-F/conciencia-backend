@@ -10,25 +10,25 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { RedisModule } from '../shared/redis/redis.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 
 @Module({
   imports: [
-    PassportModule,
-    RedisModule,
+    ConfigModule.forRoot({ isGlobal: true }),
+    PassportModule.register({}),
+    JwtModule.register({}),
     PrismaModule,
+    RedisModule,
     EmailModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        secret: cfg.get<string>('JWT_ACCESS_SECRET'),
-        signOptions: { expiresIn: cfg.get<string>('JWT_ACCESS_TTL') }
-      }),
-    }),
   ],
-  providers: [AuthService, Logger, JwtStrategy],
   controllers: [AuthController],
+  providers: [
+    AuthService,
+    JwtAccessStrategy,   // Authorization: Bearer <access>
+    JwtRefreshStrategy,  // X-Refresh-Token / Authorization: Bearer <refresh>
+  ],
   exports: [AuthService],
 })
+
 export class AuthModule { }

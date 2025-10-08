@@ -7,10 +7,11 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-  origin: [`http://127.0.0.1:${process.env.CLIENT_PORT}`],
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true,
-});
+    origin: [`http://127.0.0.1:${process.env.CLIENT_PORT}`],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Refresh-Token']
+  });
 
   app.useGlobalPipes(new ValidationPipe());
 

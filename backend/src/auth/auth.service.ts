@@ -24,6 +24,16 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TokenInfo } from './interfaces/token-info.interface';
 import { ConfigService } from '@nestjs/config';
 
+const nowSec = () => Math.floor(Date.now() / 1000);
+const remainingSecs = (jwt: string, jwtService: JwtService) => {
+  const decoded = jwtService.decode(jwt) as { exp?: number } | null;
+  if (!decoded?.exp) return 0;
+  return Math.max(0, decoded.exp - nowSec());
+};
+
+const sha256 = (s: string) =>
+  crypto.createHash('sha256').update(s).digest('hex');
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -31,14 +41,13 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly cfg: ConfigService,
-    private readonly prismaService: PrismaService,
-    private readonly redisService: RedisService,
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly emailService: EmailService,
-  ) { }
+  ) {}
 
   /**
-   * Maneja la lógica de negocio para registrar un nuevo usuario.
-   * @param dto Los datos del usuario ya validados por el RegisterDto.
+   * Registro de usuario.
    */
   async register(dto: RegisterDto) {
     const { email, password, firstName, lastName, role } = dto;
@@ -53,25 +62,18 @@ export class AuthService {
     }
 
     try {
-      const userExists = await this.prismaService.user.findUnique({
-        where: { email },
-      });
-
-      if (userExists) {
-        throw new ConflictException('El correo se encuentra en uso.');
-      }
+      const exists = await this.prisma.user.findUnique({ where: { email } });
+      if (exists) throw new ConflictException('El correo se encuentra en uso.');
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      const user = await this.prismaService.user.create({
+      const user = await this.prisma.user.create({
         data: {
           email,
           password: hashedPassword,
           firstName,
           lastName,
-          role: {
-            connect: { name: role },
-          },
+          role: { connect: { name: role } },
           isVerified: true,
         },
       });
@@ -80,7 +82,6 @@ export class AuthService {
         { sub: user.id },
         { expiresIn: '15m' },
       );
-
       await this.emailService.sendVerificationEmail(user.email, verifyToken);
 
       return {
@@ -90,169 +91,227 @@ export class AuthService {
       };
     } catch (e) {
       this.logger.error('Error durante el registro:', e.stack);
-
-      if (e instanceof ConflictException || e instanceof BadRequestException) {
+      if (e instanceof ConflictException || e instanceof BadRequestException)
         throw e;
-      }
-
       throw new BadRequestException(
         'Ocurrió un error inesperado durante el registro.',
       );
     }
   }
 
+  /**
+   * Login: devuelve access y refresh; ambos con expiresIn numérico.
+   * Access: HS256 con JWT_ACCESS_SECRET, TTL = JWT_ACCESS_TTL ("3600" | "1h").
+   * Refresh: HS256 con JWT_REFRESH_SECRET, TTL = JWT_REFRESH_TTL ("604800" | "7d"), guardado hasheado en DB y con jti.
+   */
   async login(
     dto: LoginDto,
   ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo; user: any }> {
     try {
       const { email, password } = dto;
 
-      const user = await this.prismaService.user.findUnique({
+      const user = await this.prisma.user.findUnique({
         where: { email },
-        include: {
-          role: true,
-        },
+        include: { role: true },
       });
-
-      if (!user) {
+      if (!user)
         throw new UnauthorizedException(
           'Credenciales inválidas. Intente nuevamente.',
         );
-      }
-
-      if (!user.isVerified) {
+      if (!user.isVerified)
         throw new UnauthorizedException(
-          'Tu cuenta no está activada. Verifica tu correo para activar tu cuenta.',
+          'Tu cuenta no está activada. Verifica tu correo.',
         );
-      }
 
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
+      const ok = await bcrypt.compare(password, user.password);
+      if (!ok)
         throw new UnauthorizedException(
           'Credenciales inválidas. Intente nuevamente.',
         );
-      }
 
-      const payload: JwtPayload = {
+      const accessPayload: JwtPayload = {
         sub: user.id,
         email: user.email,
         role: user.role.name,
+        token_type: 'access',
+        jti: crypto.randomUUID(),
       };
 
-      const [accessToken, refreshToken] = await Promise.all(
-        [this.jwtService.signAsync(payload, { expiresIn: 3600 }),
-        this.signAndStoreRefresh(user.id),
-        ])
+      const accessTtl = this.cfg.getOrThrow<string>('JWT_ACCESS_TTL'); // "3600" o "1h"
+      const refreshTtl = this.cfg.getOrThrow<string>('JWT_REFRESH_TTL'); // "604800" o "7d"
+
+      const accessToken = await this.jwtService.signAsync(accessPayload, {
+        secret: this.cfg.getOrThrow('JWT_ACCESS_SECRET'),
+        algorithm: 'HS256',
+        expiresIn: accessTtl,
+      });
+
+      const refreshToken = await this.signAndStoreRefresh(user.id, refreshTtl);
 
       return {
-        accessToken: { token: accessToken, expiresIn: 3600 },
-        refreshToken: { token: refreshToken, expiresIn: 604800 },
+        accessToken: {
+          token: accessToken,
+          expiresIn: remainingSecs(accessToken, this.jwtService),
+        },
+        refreshToken: {
+          token: refreshToken,
+          expiresIn: remainingSecs(refreshToken, this.jwtService),
+        },
         user: {
           id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
-          role: user.role.name
+          role: user.role.name,
         },
       };
     } catch (e) {
       this.logger.error('Error en el proceso de login:', e.stack);
-
-      if (e instanceof UnauthorizedException) {
-        throw e;
-      }
-
+      if (e instanceof UnauthorizedException) throw e;
       throw new UnauthorizedException(
         'Ocurrió un error inesperado durante el inicio de sesión.',
       );
     }
   }
 
-  private async signAndStoreRefresh(userId: string) {
+  /**
+   * Firma y persiste un refresh rotatorio en DB con jti y hash.
+   */
+  private async signAndStoreRefresh(userId: string, ttl?: string) {
     const jti = crypto.randomUUID();
     const refresh = await this.jwtService.signAsync(
-      { sub: userId, jti },
+      { sub: userId, token_type: 'refresh', jti } as JwtPayload,
       {
-        secret: this.cfg.get('JWT_REFRESH_SECRET'),
-        expiresIn: this.cfg.get('JWT_REFRESH_TTL')
-      }
+        secret: this.cfg.getOrThrow('JWT_REFRESH_SECRET'),
+        algorithm: 'HS256',
+        expiresIn: ttl ?? this.cfg.getOrThrow<string>('JWT_REFRESH_TTL'),
+      },
     );
 
-    const payload = this.jwtService.decode(refresh);
+    const payload = this.jwtService.decode(refresh) as { exp: number };
     const expiresAt = new Date(payload.exp * 1000);
 
-    await this.prismaService.refreshToken.create({
+    await this.prisma.refreshToken.create({
       data: {
         id: jti,
         userId,
         hashedToken: await bcrypt.hash(refresh, 10),
         expiresAt,
-      }
-    })
+        // revoked: false por defecto si el schema lo define
+      },
+    });
 
-    return refresh
+    return refresh;
   }
 
+  /**
+   * Rotación de refresh: valida firma, estado en DB, consume el actual y emite nuevo par.
+   * El refresh se espera por header (p. ej. X-Refresh-Token) desde el controlador.
+   */
+  async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo }> {
+    const { sub, jti, token_type } = await this.jwtService.verifyAsync<{
+      sub: string;
+      jti: string;
+      token_type: 'refresh';
+    }>(refreshToken, {
+      secret: this.cfg.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      algorithms: ['HS256'],
+    });
 
-  async refreshAccessToken(refreshToken: string): Promise<{ accessToken: TokenInfo; refreshToken: TokenInfo }> {
+    if (token_type !== 'refresh')
+      throw new UnauthorizedException('Refresh inválido');
 
-    const { sub, jti } = await this.jwtService.verifyAsync<{ sub: string; jti: string }>(
-      refreshToken,
-      { secret: this.cfg.get<string>('JWT_REFRESH_SECRET') },
-    );
-
-    const rec = await this.prismaService.refreshToken.findUnique({ where: { id: jti } });
-    if (!rec || rec.revoked || rec.userId !== sub || rec.expiresAt < new Date()) {
+    const rec = await this.prisma.refreshToken.findUnique({
+      where: { id: jti },
+    });
+    if (
+      !rec ||
+      rec.revoked ||
+      rec.userId !== sub ||
+      rec.expiresAt < new Date()
+    ) {
       throw new UnauthorizedException('Refresh inválido');
     }
-
     const ok = await bcrypt.compare(refreshToken, rec.hashedToken);
     if (!ok) throw new UnauthorizedException('Refresh inválido');
 
-    return this.prismaService.$transaction(async (tx) => {
-      await tx.refreshToken.update({ where: { id: jti }, data: { revoked: true } });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
+        where: { id: jti },
+        data: { revoked: true },
+      });
 
-      const accessExp = 3600;
-      const newAccess = await this.jwtService.signAsync(
-        { sub, },
-        { expiresIn: accessExp },
-      );
+      const accessPayload: JwtPayload = {
+        sub,
+        token_type: 'access',
+        jti: crypto.randomUUID(),
+      };
+
+      const accessTtl = this.cfg.getOrThrow<string>('JWT_ACCESS_TTL');
+      const newAccess = await this.jwtService.signAsync(accessPayload, {
+        secret: this.cfg.getOrThrow('JWT_ACCESS_SECRET'),
+        algorithm: 'HS256',
+        expiresIn: accessTtl,
+      });
 
       const newRefresh = await this.signAndStoreRefresh(sub);
 
       return {
-        accessToken: { token: newAccess, expiresIn: accessExp },
-        refreshToken: { token: newRefresh, expiresIn: 604800 }, // o desde env
+        accessToken: {
+          token: newAccess,
+          expiresIn: remainingSecs(newAccess, this.jwtService),
+        },
+        refreshToken: {
+          token: newRefresh,
+          expiresIn: remainingSecs(newRefresh, this.jwtService),
+        },
       };
     });
   }
 
+  /**
+   * Logout: blacklist del access por jti (y fallback por hash) + revocación opcional del refresh.
+   */
   async logout(accessToken: string, refreshToken?: string) {
-    const decodedAccess = this.jwtService.decode(accessToken) as JwtPayload;
-    const now = Math.floor(Date.now() / 1000);
-    const exp = decodedAccess.exp ?? now;
-    const ttl = exp - now;
-    if (ttl > 0) {
-      await this.redisService.set(`bl_${accessToken}`, 'true', ttl);
+    try {
+      const decoded = this.jwtService.decode(
+        accessToken,
+      ) as Partial<JwtPayload> | null;
+      const exp = decoded?.exp ?? nowSec();
+      const ttl = Math.max(1, exp - nowSec());
+
+      if (decoded?.jti) {
+        await this.redis.set(`bl_jti_${decoded.jti}`, '1', ttl);
+      } else {
+        await this.redis.set(`bl_${sha256(accessToken)}`, '1', ttl);
+      }
+    } catch (e) {
+      this.logger.warn(`No se pudo blacklistear access token: ${String(e)}`);
     }
 
     if (refreshToken) {
       try {
-        const { jti, sub } = await this.jwtService.verifyAsync<{ jti: string; sub: string }>(
-          refreshToken,
-          { secret: this.cfg.get<string>('JWT_REFRESH_SECRET') },
-        );
-
-        await this.prismaService.refreshToken.updateMany({
+        const { jti, sub } = await this.jwtService.verifyAsync<{
+          jti: string;
+          sub: string;
+        }>(refreshToken, {
+          secret: this.cfg.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        });
+        await this.prisma.refreshToken.updateMany({
           where: { id: jti, userId: sub, revoked: false },
           data: { revoked: true },
         });
       } catch (e) {
-        console.error('Error al invalidar refresh token:', e);
+        this.logger.warn(`Error al invalidar refresh token: ${String(e)}`);
       }
     }
   }
 
+  /**
+   * Verificación de email con token corto.
+   */
   async verifyEmail(token: string): Promise<string> {
     let payload: { sub: string };
     try {
@@ -261,18 +320,14 @@ export class AuthService {
       throw new BadRequestException('Token inválido o expirado');
     }
 
-    const user = await this.prismaService.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+    if (!user) throw new NotFoundException('Usuario no encontrado');
 
-    if (user.isVerified) {
-      return 'Tu cuenta ya estaba verificada.';
-    }
+    if (user.isVerified) return 'Tu cuenta ya estaba verificada.';
 
-    await this.prismaService.user.update({
+    await this.prisma.user.update({
       where: { id: user.id },
       data: { isVerified: true },
     });
@@ -280,64 +335,46 @@ export class AuthService {
     return 'Cuenta verificada correctamente';
   }
 
+  /**
+   * Password reset: generación de token.
+   */
   async generatePasswordResetToken(email: string): Promise<string> {
     try {
-      const user = await this.prismaService.user.findUnique({
-        where: { email },
-      });
-
-      if (!user) {
-        this.logger.warn(
-          `Intento de restablecimiento de contraseña para un usuario no encontrado: ${email}`,
-        );
-
-        throw new NotFoundException('Usuario no encontrado');
-      }
+      const user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) throw new NotFoundException('Usuario no encontrado');
 
       const resetToken = crypto.randomBytes(32).toString('hex');
-      const tokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hora
+      const tokenExpiry = new Date(Date.now() + 3600 * 1000); // 1h
 
-      await this.prismaService.user.update({
+      await this.prisma.user.update({
         where: { email },
-        data: {
-          resetToken,
-          resetTokenExpiry: tokenExpiry,
-        },
+        data: { resetToken, resetTokenExpiry: tokenExpiry },
       });
 
-      this.logger.log(
-        `Token de restablecimiento generado para el usuario: ${email}`,
-      );
-
+      this.logger.log(`Token de restablecimiento generado para: ${email}`);
       return resetToken;
     } catch (e) {
       this.logger.error(
         'Error al generar el token de restablecimiento',
         e.stack,
       );
-
       throw new BadRequestException('Token invalidado o expirado');
     }
   }
 
+  /**
+   * Password reset: actualización de contraseña.
+   */
   async resetPassword(token: string, newPassword: string): Promise<string> {
     try {
-      const user = await this.prismaService.user.findFirst({
-        where: {
-          resetToken: token,
-          resetTokenExpiry: {
-            gte: new Date(),
-          },
-        },
+      const user = await this.prisma.user.findFirst({
+        where: { resetToken: token, resetTokenExpiry: { gte: new Date() } },
       });
-
-      if (!user) {
-        throw new BadRequestException('Token inválido o expirado');
-      }
+      if (!user) throw new BadRequestException('Token inválido o expirado');
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-      await this.prismaService.user.update({
+      await this.prisma.user.update({
         where: { id: user.id },
         data: {
           password: hashedPassword,
